@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-receptionist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-receptionist}
+      POSTGRES_DB: ${POSTGRES_DB:-receptionist}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-receptionist} -d ${POSTGRES_DB:-receptionist}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml --dev --bind 0.0.0.0
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50019:50000-50019/udp"
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "receptionist.worker", "dev"]
+    env_file: .env
+    environment:
+      # Postgres is a separate container -- .env's DATABASE_URL/CHECKPOINTER_
+      # DATABASE_URL say "localhost", which is only correct on the host.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
+      CHECKPOINTER_DATABASE_URL: postgresql://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    # Shares livekit's network namespace instead of joining the bridge
+    # network normally. The worker does real WebRTC media, and livekit.yaml's
+    # node_ip: 127.0.0.1 (the fix for a "connects then drops after 30s" bug)
+    # only works when the worker sees the same loopback as the livekit
+    # server -- exactly as when both ran directly on the host. Do not change
+    # this to a normal network without re-verifying a live call still holds.
+    network_mode: "service:livekit"
+
+  token:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "uvicorn", "server.token_server:app", "--host", "0.0.0.0", "--port", "8080"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
+      CHECKPOINTER_DATABASE_URL: postgresql://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
+      # NOT overridden: .env's LIVEKIT_URL (ws://localhost:7880) is handed
+      # to the browser as-is, which runs on the host where that's correct --
+      # this container never itself connects to LiveKit over the network.
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "http.server", "5500", "--directory", "web"]
+    ports:
+      - "5500:5500"
+    volumes:
+      - .:/app
+    depends_on:
+      - token
+
+volumes:
+  pgdata:

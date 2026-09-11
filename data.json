@@ -1,0 +1,273 @@
+{
+  "lab_metadata": {
+    "center_id": "LAL_BANER_377205",
+    "name": "Dr Lal PathLabs - Patient Service Centre",
+    "branch_name": "Baner, Pune",
+    "full_address": "Shop No 12, Baner Road, Near Sunflower Commercial, Haveli, Baner, Pune, Maharashtra - 411045",
+    "landmark": "Near Sunflower Commercial",
+    "geo_location": {
+      "latitude": 18.56106758,
+      "longitude": 73.78578949
+    },
+    "contact_numbers": [
+      "+918071371386"
+    ],
+    "operating_hours": {
+      "mon_sat": "08:00 AM - 08:00 PM",
+      "sun": "09:00 AM - 12:00 PM"
+    },
+    "accreditations": [
+      "CAP Certified",
+      "NABL Accredited"
+    ],
+    "facilities": {
+      "parking": "Street parking available",
+      "home_collection": true,
+      "wheelchair_accessible": true
+    },
+    "payment_methods_accepted": [
+      "Cash",
+      "Credit Card",
+      "Debit Card",
+      "Online Payment / UPI"
+    ]
+  },
+
+  "individual_tests": [
+    {
+      "test_code": "T001",
+      "canonical_name": "Vitamin D (25-Hydroxy)",
+      "aliases": ["vitamin d", "vit d", "25-oh-vitamin-d", "calciferol", "sunshine vitamin"],
+      "category": "Vitamins & Minerals",
+      "sample_type": "Blood",
+      "fasting_required": false,
+      "fasting_instructions": "No mandatory fasting. 8 hours overnight fasting recommended if booked with other lipid/sugar panels.",
+      "turnaround_time_hours": 24,
+      "standalone_price_inr": 1300,
+      "home_collection_eligible": true,
+      "description": "Measures the level of Vitamin D in your blood to evaluate bone health and immune function.",
+      "upsell_package_codes": ["PKG_SUPER3", "PKG_SUPER4", "PKG_COMPLETE"]
+    },
+    {
+      "test_code": "T002",
+      "canonical_name": "Vitamin B12 (Cyanocobalamin)",
+      "aliases": ["vitamin b12", "b12", "cyanocobalamin", "nerve vitamin"],
+      "category": "Vitamins & Minerals",
+      "sample_type": "Blood",
+      "fasting_required": false,
+      "fasting_instructions": "Overnight fasting preferred.",
+      "turnaround_time_hours": 24,
+      "standalone_price_inr": 1100,
+      "home_collection_eligible": true,
+      "description": "Evaluates B12 levels essential for nerve health, red blood cell production, and brain function.",
+      "upsell_package_codes": ["PKG_SUPER3", "PKG_SUPER4", "PKG_COMPLETE"]
+    },
+    {
+      "test_code": "T003",
+      "canonical_name": "HbA1c (Glycated Hemoglobin)",
+      "aliases": ["hba1c", "3 month sugar test", "glycated hemoglobin", "diabetic index"],
+      "category": "Diabetes",
+      "sample_type": "Blood",
+      "fasting_required": false,
+      "fasting_instructions": "Fasting is not required.",
+      "turnaround_time_hours": 12,
+      "standalone_price_inr": 600,
+      "home_collection_eligible": true,
+      "description": "Reflects average blood sugar levels over the past 2 to 3 months.",
+      "upsell_package_codes": ["PKG_SUPER2", "PKG_SUPER4", "PKG_COMPLETE"]
+    },
+    {
+      "test_code": "T004",
+      "canonical_name": "Complete Blood Count (CBC)",
+      "aliases": ["cbc", "hemogram", "full blood count", "hb count", "platelet count"],
+      "category": "General Hematology",
+      "sample_type": "Blood",
+      "fasting_required": false,
+      "fasting_instructions": "No fasting needed.",
+      "turnaround_time_hours": 12,
+      "standalone_price_inr": 350,
+      "home_collection_eligible": true,
+      "description": "Evaluates overall health and detects conditions like anemia, infection, and leukemia.",
+      "upsell_package_codes": ["PKG_SUPER2", "PKG_SUPER4", "PKG_COMPLETE"]
+    },
+    {
+      "test_code": "T005",
+      "canonical_name": "Thyroid Profile Free (FT3, FT4, TSH)",
+      "aliases": ["thyroid test", "tsh test", "thyroid profile", "ft3 ft4 tsh"],
+      "category": "Endocrine / Thyroid",
+      "sample_type": "Blood",
+      "fasting_required": false,
+      "fasting_instructions": "Morning blood draw recommended before taking thyroid medication.",
+      "turnaround_time_hours": 24,
+      "standalone_price_inr": 650,
+      "home_collection_eligible": true,
+      "description": "Checks thyroid gland function to diagnose hypothyroidism or hyperthyroidism.",
+      "upsell_package_codes": ["PKG_SUPER1", "PKG_SUPER2", "PKG_SUPER3", "PKG_SUPER4"]
+    },
+    {
+      "test_code": "T006",
+      "canonical_name": "Lipid Profile Basic",
+      "aliases": ["cholesterol test", "lipid profile", "triglycerides", "hdl ldl test"],
+      "category": "Cardiovascular / Heart",
+      "sample_type": "Blood",
+      "fasting_required": true,
+      "fasting_instructions": "10 to 12 hours strict overnight fasting required.",
+      "turnaround_time_hours": 12,
+      "standalone_price_inr": 800,
+      "home_collection_eligible": true,
+      "description": "Measures total cholesterol, HDL, LDL, and triglycerides to assess heart health risk.",
+      "upsell_package_codes": ["PKG_SUPER1", "PKG_SUPER2", "PKG_SUPER3", "PKG_SUPER4"]
+    },
+    {
+      "test_code": "T007",
+      "canonical_name": "Liver Function Test (LFT)",
+      "aliases": ["lft", "liver profile", "sgot sgpt", "bilirubin test"],
+      "category": "Hepatic / Liver",
+      "sample_type": "Blood",
+      "fasting_required": true,
+      "fasting_instructions": "8 to 10 hours overnight fasting recommended.",
+      "turnaround_time_hours": 12,
+      "standalone_price_inr": 850,
+      "home_collection_eligible": true,
+      "description": "Measures proteins, liver enzymes, and bilirubin to evaluate liver health.",
+      "upsell_package_codes": ["PKG_SUPER1", "PKG_SUPER2", "PKG_SUPER3", "PKG_SUPER4"]
+    },
+    {
+      "test_code": "T008",
+      "canonical_name": "Kidney Function Test (KFT)",
+      "aliases": ["kft", "renal profile", "creatinine test", "urea test"],
+      "category": "Renal / Kidney",
+      "sample_type": "Blood & Urine",
+      "fasting_required": false,
+      "fasting_instructions": "Drink normal water before sample collection.",
+      "turnaround_time_hours": 12,
+      "standalone_price_inr": 850,
+      "home_collection_eligible": true,
+      "description": "Evaluates kidney function by measuring creatinine, blood urea nitrogen, and electrolytes.",
+      "upsell_package_codes": ["PKG_SUPER1", "PKG_SUPER2", "PKG_SUPER3", "PKG_SUPER4"]
+    }
+  ],
+
+  "health_packages": [
+    {
+      "package_code": "PKG_SUPER1",
+      "package_name": "SwasthFit Super 1",
+      "category": "Essential Health Checkup",
+      "fasting_required": true,
+      "fasting_instructions": "10-12 hours overnight fasting required.",
+      "included_test_codes": ["T005", "T006", "T007", "T008"],
+      "included_tests_summary": ["Sugar Choice", "Thyroid Profile Free", "Lipid Profile Basic", "LFT", "KFT"],
+      "estimated_package_price_inr": 1999,
+      "value_proposition": "Entry-level comprehensive checkup covering heart, liver, kidney, thyroid, and blood sugar."
+    },
+    {
+      "package_code": "PKG_SUPER2",
+      "package_name": "SwasthFit Super 2",
+      "category": "Diabetic & Routine Health Checkup",
+      "fasting_required": true,
+      "fasting_instructions": "10-12 hours overnight fasting required.",
+      "included_test_codes": ["T003", "T004", "T005", "T006", "T007", "T008"],
+      "included_tests_summary": ["Sugar Choice", "Thyroid Profile Free", "Lipid Profile Basic", "LFT", "KFT", "HbA1c", "CBC"],
+      "estimated_package_price_inr": 2499,
+      "value_proposition": "Complete metabolic and diabetic profile with basic heart, liver, and kidney health assessment."
+    },
+    {
+      "package_code": "PKG_SUPER3",
+      "package_name": "SwasthFit Super 3",
+      "category": "Vitamin & Vital Health Checkup",
+      "fasting_required": true,
+      "fasting_instructions": "10-12 hours overnight fasting required.",
+      "included_test_codes": ["T001", "T002", "T005", "T006", "T007", "T008"],
+      "included_tests_summary": ["Sugar Choice", "Thyroid Profile Free", "Lipid Profile Basic", "LFT", "KFT", "Vitamin-D", "Vitamin-B12"],
+      "estimated_package_price_inr": 2999,
+      "value_proposition": "Ideal for fatigue and body pain issues. Adds Vitamin D and B12 to vital organ screenings."
+    },
+    {
+      "package_code": "PKG_SUPER4",
+      "package_name": "SwasthFit Super 4",
+      "category": "Advanced Full Body Checkup",
+      "fasting_required": true,
+      "fasting_instructions": "10-12 hours overnight fasting required.",
+      "included_test_codes": ["T001", "T002", "T003", "T004", "T005", "T006", "T007", "T008"],
+      "included_tests_summary": ["Sugar Choice", "Thyroid Profile Free", "Lipid Profile Basic", "LFT", "KFT", "Vitamin-D", "Vitamin-B12", "HbA1c", "CBC"],
+      "estimated_package_price_inr": 3499,
+      "value_proposition": "Most popular full body checkup covering all 8 major health profiles including vitamins and diabetes."
+    },
+    {
+      "package_code": "PKG_COMPLETE",
+      "package_name": "SwasthFit Complete",
+      "category": "Master / Executive Health Checkup",
+      "fasting_required": true,
+      "fasting_instructions": "10-12 hours overnight fasting required.",
+      "included_test_codes": ["T001", "T002", "T003", "T004", "T005", "T006", "T007", "T008"],
+      "included_tests_summary": ["Sugar Choice", "Thyroid Free", "Lipid Basic", "LFT", "KFT", "Vitamin-D", "Vitamin-B12", "HbA1c", "CBC", "Urine Routine", "Hemogram", "Iron Studies", "Apo A1 & B", "Amylase", "HsCRP"],
+      "estimated_package_price_inr": 4999,
+      "value_proposition": "Top-tier diagnostic profile with cardiac risk markers (HsCRP, Apo A1/B), iron levels, and pancreatic enzymes."
+    },
+    {
+      "package_code": "PKG_FEVER_PANEL",
+      "package_name": "Fever Panel Test",
+      "category": "Infectious Disease",
+      "fasting_required": false,
+      "fasting_instructions": "No fasting needed.",
+      "included_test_codes": ["T004"],
+      "included_tests_summary": ["CBC", "Dengue NS1 Antigen", "Malaria Smear/Ag", "Typhoid Widal/IgM", "Urine Routine"],
+      "estimated_package_price_inr": 1200,
+      "value_proposition": "Essential diagnostic panel for persistent high fever, body pain, and chills."
+    }
+  ],
+
+  "symptoms_and_conditions_routing": [
+    {
+      "condition_keyword": "fever",
+      "symptoms": ["high temperature", "chills", "body pain", "monsoon fever", "dengue suspicion"],
+      "recommended_tests": ["PKG_FEVER_PANEL", "T004"],
+      "voice_script_hint": "Recommend the Fever Panel which covers Dengue, Malaria, Typhoid, and CBC."
+    },
+    {
+      "condition_keyword": "fatigue",
+      "symptoms": ["tiredness", "low energy", "joint pain", "muscle weakness"],
+      "recommended_tests": ["T001", "T002", "PKG_SUPER3"],
+      "voice_script_hint": "Fatigue is often linked to Vitamin D or B12 deficiency. Suggest SwasthFit Super 3 package."
+    },
+    {
+      "condition_keyword": "diabetes",
+      "symptoms": ["frequent urination", "high sugar", "increased thirst", "weight loss"],
+      "recommended_tests": ["T003", "PKG_SUPER2", "PKG_SUPER4"],
+      "voice_script_hint": "Advise HbA1c test or the SwasthFit Super 2 package for a overall diabetic health check."
+    }
+  ],
+
+  "promotions_and_discounts": [
+    {
+      "offer_id": "OFFER_SENIOR_CITIZEN",
+      "title": "Senior Citizen Discount",
+      "code": "SWASTH_POINTS_10",
+      "discount_percent": 10,
+      "format": "10% Cashback as Swasth Points",
+      "eligibility": "Patients aged 60 and above",
+      "applicable_on": "Individual standalone tests",
+      "voice_prompt_trigger": "If patient age >= 60 mentioned during booking."
+    },
+    {
+      "offer_id": "OFFER_FAMILY_1PLUS1",
+      "title": "Family 1+1 Offer",
+      "code": "FAMILY_SW_COMPLETE",
+      "discount_percent": null,
+      "format": "Package discount for 2 family members",
+      "eligibility": "Two patients booking SwasthFit Complete simultaneously",
+      "applicable_on": "SwasthFit Complete Packages",
+      "voice_prompt_trigger": "If caller mentions booking for spouse/parents/multiple family members."
+    }
+  ],
+
+  "operational_rules": {
+    "home_collection_charges": {
+      "standard_fee_inr": 150,
+      "waived_if_order_above_inr": 1500
+    },
+    "booking_lead_time_hours": 2,
+    "whatsapp_summary_enabled": true,
+    "cancellation_policy": "Free cancellation before the Phlebotomist is dispatched."
+  }
+}

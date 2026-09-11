@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diagnostics Receptionist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-1: #eef4fb;
+      --bg-2: #e4edfa;
+      --card: #ffffff;
+      --ink: #16213a;
+      --ink-soft: #5b6b8c;
+      --line: #e4e9f4;
+      --brand: #2f6fed;
+      --brand-dark: #1f4fc4;
+      --brand-soft: #eaf1ff;
+      --accent: #17b58f;
+      --danger: #e6483f;
+      --danger-dark: #c8362e;
+      --bubble-user: #2f6fed;
+      --bubble-user-ink: #ffffff;
+      --bubble-agent: #f1f4fa;
+      --bubble-agent-ink: #16213a;
+      --shadow: 0 20px 45px -20px rgba(31, 55, 110, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1100px 600px at 12% -10%, #dce9ff 0%, transparent 60%),
+        radial-gradient(900px 500px at 110% 10%, #d7f6ec 0%, transparent 55%),
+        linear-gradient(180deg, var(--bg-1), var(--bg-2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,0.6);
+      overflow: hidden;
+    }
+
+    /* ---------- Screen: connect ---------- */
+    .connect-pad {
+      padding: 40px 32px 32px;
+      text-align: center;
+    }
+
+    .brand-mark {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 18px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--brand), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: white;
+      box-shadow: 0 12px 24px -8px rgba(47, 111, 237, 0.55);
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin: 0 0 4px;
+      letter-spacing: -0.01em;
+    }
+
+    .subtitle {
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+      margin: 0 0 28px;
+      line-height: 1.5;
+    }
+
+    .field {
+      text-align: left;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+      margin-bottom: 7px;
+    }
+
+    label .req {
+      color: var(--danger);
+    }
+
+    input[type="tel"] {
+      width: 100%;
+      padding: 13px 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcff;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="tel"]:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 4px var(--brand-soft);
+    }
+
+    input[type="tel"].invalid {
+      border-color: var(--danger);
+    }
+
+    .field-error {
+      min-height: 18px;
+      font-size: 0.78rem;
+      color: var(--danger);
+      margin-top: 6px;
+      text-align: left;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: white;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+      box-shadow: 0 14px 28px -12px rgba(47, 111, 237, 0.65);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+
+    .connect-status {
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: var(--ink-soft);
+      min-height: 18px;
+    }
+    .connect-status.error { color: var(--danger); font-weight: 600; }
+
+    /* ---------- Screen: on call ---------- */
+    #screen-call { display: none; }
+    #screen-call.active { display: block; }
+    #screen-connect.hidden { display: none; }
+
+    .call-header {
+      padding: 22px 24px 18px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .avatar {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .avatar::after {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.55);
+      opacity: 0;
+      transform: scale(0.9);
+    }
+
+    .avatar.pulsing::after {
+      animation: pulse-ring 1.6s ease-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% { opacity: 0.65; transform: scale(0.9); }
+      100% { opacity: 0; transform: scale(1.35); }
+    }
+
+    .call-heading { flex: 1; min-width: 0; }
+    .call-heading .name { font-weight: 700; font-size: 1.05rem; }
+    .call-heading .status {
+      font-size: 0.8rem;
+      opacity: 0.9;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #7be3c0;
+      box-shadow: 0 0 0 0 rgba(123, 227, 192, 0.6);
+      animation: dot-glow 1.8s ease-in-out infinite;
+    }
+
+    @keyframes dot-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(123, 227, 192, 0.55); }
+      50% { box-shadow: 0 0 0 5px rgba(123, 227, 192, 0); }
+    }
+
+    .transcript {
+      height: 300px;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #f7f9fd;
+    }
+
+    .transcript::-webkit-scrollbar { width: 6px; }
+    .transcript::-webkit-scrollbar-thumb { background: #c9d5ee; border-radius: 6px; }
+
+    .transcript-empty {
+      margin: auto;
+      text-align: center;
+      color: var(--ink-soft);
+      font-size: 0.85rem;
+      max-width: 220px;
+      line-height: 1.5;
+    }
+
+    .bubble-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 82%;
+    }
+    .bubble-row.from-user { align-self: flex-end; align-items: flex-end; }
+    .bubble-row.from-agent { align-self: flex-start; align-items: flex-start; }
+
+    .bubble-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+      margin-bottom: 4px;
+      padding: 0 4px;
+    }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      word-wrap: break-word;
+      box-shadow: 0 4px 14px -8px rgba(20, 30, 60, 0.18);
+    }
+    .from-user .bubble {
+      background: var(--bubble-user);
+      color: var(--bubble-user-ink);
+      border-bottom-right-radius: 4px;
+    }
+    .from-agent .bubble {
+      background: var(--bubble-agent);
+      color: var(--bubble-agent-ink);
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.interim { opacity: 0.6; font-style: italic; }
+
+    .call-controls {
+      padding: 18px 24px 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .btn-hangup {
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--danger), var(--danger-dark));
+      color: white;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 14px 28px -10px rgba(230, 72, 63, 0.65);
+      transition: transform 0.12s ease;
+    }
+    .btn-hangup:hover { transform: translateY(-1px) scale(1.03); }
+    .btn-hangup:active { transform: scale(0.96); }
+
+    .footnote {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+      margin-top: 18px;
+    }
+
+    @media (max-width: 400px) {
+      .transcript { height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+
+      <section id="screen-connect">
+        <div class="connect-pad">
+          <div class="brand-mark">🩺</div>
+          <h1 id="labNameHeading">Diagnostics Receptionist</h1>
+          <p class="subtitle">
+            Call <span id="agentNameInline">your AI receptionist</span> for report status, pricing,
+            or to book a lab or home-visit appointment.
+          </p>
+
+          <div class="field">
+            <label for="phone">Phone number <span class="req">*</span></label>
+            <input id="phone" type="tel" inputmode="tel" placeholder="e.g. +91 12345 00001"
+                   autocomplete="tel" required />
+            <div class="field-error" id="phoneError"></div>
+          </div>
+
+          <button id="connectBtn" class="btn-primary">
+            <span>📞</span><span id="connectBtnLabel">Call</span>
+          </button>
+          <div class="connect-status" id="connectStatus"></div>
+        </div>
+      </section>
+
+      <section id="screen-call">
+        <div class="call-header">
+          <div class="avatar" id="avatar">🩺</div>
+          <div class="call-heading">
+            <div class="name" id="callHeaderName">Receptionist</div>
+            <div class="status"><span class="status-dot"></span><span id="callStatusText">Connecting…</span></div>
+          </div>
+        </div>
+
+        <div class="transcript" id="transcript">
+          <div class="transcript-empty" id="transcriptEmpty">
+            Your conversation will appear here as you talk.
+          </div>
+        </div>
+
+        <div class="call-controls">
+          <button id="hangupBtn" class="btn-hangup" title="Hang up">⏹</button>
+        </div>
+      </section>
+
+    </div>
+    <p class="footnote">This is a proof-of-concept voice assistant. No real patient data is used.</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

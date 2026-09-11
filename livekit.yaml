@@ -1,0 +1,13 @@
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50019
+  use_external_ip: false
+  # Browser and server are the same machine here -- advertise localhost so
+  # WebRTC media (UDP) can actually reach the container's mapped ports.
+  # Without this, LiveKit advertises its internal Docker network IP, which
+  # signaling succeeds against but real audio can never reach -- symptoms:
+  # room join/track-subscribe work, but the call silently drops after
+  # ~30s once the browser's ICE connectivity check times out.
+  node_ip: 127.0.0.1
