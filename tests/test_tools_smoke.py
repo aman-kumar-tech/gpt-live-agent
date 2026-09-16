@@ -81,7 +81,7 @@ async def test_registration_propose_then_confirm_via_tools():
     import uuid
 
     ctx = _ctx()
-    phone = f"+1555{uuid.uuid4().int % 10_000_000:07d}"
+    phone = f"9{uuid.uuid4().int % 10**9:09d}"
 
     proposal = await propose_new_patient_registration._func(ctx, "Tool Smoke Test", phone)
     assert "Should I go ahead?" in proposal

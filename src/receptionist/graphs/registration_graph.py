@@ -14,7 +14,7 @@ from receptionist.db.repositories import patients as patients_repo
 from receptionist.db.repositories.pending_actions import create_pending_action
 from receptionist.graphs.checkpointer import get_checkpointer
 from receptionist.graphs.state import await_confirmation, finalize_pending_action
-from receptionist.validation import parse_date_of_birth, validate_phone_number
+from receptionist.validation import parse_date_of_birth, validate_full_name, validate_phone_number
 
 
 class RegistrationState(TypedDict, total=False):
@@ -35,6 +35,9 @@ class RegistrationState(TypedDict, total=False):
 async def _validate_and_stage(state: RegistrationState) -> RegistrationState:
     if not state.get("full_name") or not state.get("phone_number"):
         return {**state, "error": "full_name and phone_number are required"}
+
+    if name_error := validate_full_name(state["full_name"]):
+        return {**state, "error": name_error}
 
     if phone_error := validate_phone_number(state["phone_number"]):
         return {**state, "error": phone_error}

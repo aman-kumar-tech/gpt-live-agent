@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # GPT-Live's backend reasoning model (responses_options["model"]) -- the
     # model that actually picks tools and drives the conversation logic.
     # The voice/speech layer itself is always gpt-live-1 (see agent.py).
-    reasoning_model: str = "gpt-5.1"
+    reasoning_model: str = "gpt-4o-mini"
 
     # Prices in the catalog/seed data are in this currency (data.json is INR).
     currency_symbol: str = "₹"

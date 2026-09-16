@@ -24,8 +24,8 @@ async def propose_new_patient_registration(
     confirm_new_patient_registration after they explicitly say yes.
 
     Args:
-        full_name: The caller's full name.
-        phone_number: The caller's phone number.
+        full_name: The caller's first AND last name -- ask for both if they only give one; never invent or default this (e.g. "User", "Guest") to fill it in.
+        phone_number: The caller's phone number as plain digits only (e.g. "9812340003"). Ask for just the local number, not "+91"/"+1" etc. -- but if they give a country code anyway, that's fine too, just pass along whatever digits they said (with or without it). No spaces, dashes, or spelled-out words. Convert however the caller said it (spoken digit by digit, grouped like "ninety-eight twelve", or with "double"/"triple"/"oh") into that digit string yourself first.
         date_of_birth: ISO date (YYYY-MM-DD), if the caller gives one.
         gender: If the caller gives one.
         email: If the caller gives one.

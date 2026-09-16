@@ -11,7 +11,7 @@ from receptionist.graphs.registration_graph import build_registration_graph
 
 async def test_registration_requires_confirmation_before_writing():
     graph = await build_registration_graph()
-    phone = f"+1555{uuid.uuid4().int % 10_000_000:07d}"
+    phone = f"9{uuid.uuid4().int % 10**9:09d}"
     call_session_id = f"test-call-reg-1-{uuid.uuid4()}"
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 
@@ -46,7 +46,7 @@ async def test_registration_requires_confirmation_before_writing():
 
 async def test_registration_discard_writes_nothing():
     graph = await build_registration_graph()
-    phone = f"+1555{uuid.uuid4().int % 10_000_000:07d}"
+    phone = f"9{uuid.uuid4().int % 10**9:09d}"
     call_session_id = f"test-call-reg-2-{uuid.uuid4()}"
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 
@@ -69,7 +69,7 @@ async def test_registration_discard_writes_nothing():
 
 async def test_registration_rejects_duplicate_without_pausing():
     graph = await build_registration_graph()
-    phone = f"+1555{uuid.uuid4().int % 10_000_000:07d}"
+    phone = f"9{uuid.uuid4().int % 10**9:09d}"
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 
     await graph.ainvoke(
@@ -105,7 +105,7 @@ async def test_registration_rejects_invalid_phone_number_without_pausing():
 
 async def test_registration_rejects_unreasonable_date_of_birth():
     graph = await build_registration_graph()
-    phone = f"+1555{uuid.uuid4().int % 10_000_000:07d}"
+    phone = f"9{uuid.uuid4().int % 10**9:09d}"
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 
     result = await graph.ainvoke(

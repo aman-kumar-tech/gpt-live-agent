@@ -43,13 +43,18 @@ async def list_open_slots(
     on_date: date,
     open_time: time,
     close_time: time,
+    lead_time_hours: float = 0,
 ) -> list[datetime]:
-    """Candidate hourly slots for a given day, filtered to ones that still have capacity."""
+    """Candidate hourly slots for a given day, filtered to ones that still
+    have capacity AND meet the lab's booking lead time -- otherwise this
+    would offer a slot (e.g. today's opening time) that propose_appointment_
+    booking then turns around and rejects as too soon."""
     slots: list[datetime] = []
+    earliest = datetime.now() + timedelta(hours=lead_time_hours)
     current = datetime.combine(on_date, open_time)
     end = datetime.combine(on_date, close_time)
     while current < end:
-        if await is_slot_available(session, current):
+        if current >= earliest and await is_slot_available(session, current):
             slots.append(current)
         current += timedelta(minutes=SLOT_MINUTES)
     return slots

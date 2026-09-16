@@ -6,6 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from receptionist.db.models import Offer, Package, PackageTest, SymptomRoute, Test
 
 
+async def list_active_tests(session: AsyncSession) -> list[Test]:
+    result = await session.execute(select(Test).where(Test.active.is_(True)))
+    return list(result.scalars().all())
+
+
+async def list_active_packages(session: AsyncSession) -> list[Package]:
+    result = await session.execute(select(Package).where(Package.active.is_(True)))
+    return list(result.scalars().all())
+
+
 async def find_test(session: AsyncSession, name_or_code: str) -> Test | None:
     """Matches by code, canonical name, or any alias -- callers rarely say a
     test's official name (e.g. "sugar test" for HbA1c)."""

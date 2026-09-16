@@ -15,7 +15,15 @@ from receptionist.tools.appointment_tools import (
     propose_appointment_cancellation,
     propose_appointment_change,
 )
-from receptionist.tools.catalog_tools import get_package_info, get_test_info, list_offers, suggest_tests_for_symptom
+from receptionist.tools.call_control_tools import end_call
+from receptionist.tools.catalog_tools import (
+    get_package_info,
+    get_test_info,
+    list_available_packages,
+    list_available_tests,
+    list_offers,
+    suggest_tests_for_symptom,
+)
 from receptionist.tools.identity_tools import identify_patient
 from receptionist.tools.lab_info_tools import get_human_handoff_number, get_lab_info
 from receptionist.tools.pending_action_tools import discard_pending_action
@@ -30,6 +38,8 @@ ALL_TOOLS = [
     get_report_status,
     get_test_info,
     get_package_info,
+    list_available_tests,
+    list_available_packages,
     list_offers,
     suggest_tests_for_symptom,
     get_lab_info,
@@ -45,6 +55,7 @@ ALL_TOOLS = [
     propose_appointment_cancellation,
     confirm_appointment_cancellation,
     discard_pending_action,
+    end_call,
 ]
 
 
@@ -54,6 +65,9 @@ class ReceptionistAgent(Agent):
 
 
 def build_gpt_live_model() -> GPTLiveModel:
+    # reasoning/text.verbosity (ResponsesDelegationOptions) only apply to gpt-5
+    # and o-series backend models -- OpenAI rejects them for gpt-4o-mini, so
+    # they're intentionally left unset while reasoning_model is gpt-4o-mini.
     return GPTLiveModel(
         voice="marin",
         responses_options={

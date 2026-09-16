@@ -8,6 +8,7 @@ from livekit.agents import Agent, AgentSession, JobContext, JobProcess, WorkerOp
 load_dotenv()
 
 from receptionist.agent import ReceptionistAgent, build_gpt_live_model
+from receptionist.auto_hangup import attach_auto_hangup
 from receptionist.call_state import CallState
 from receptionist.config import settings
 from receptionist.observability import attach_observability
@@ -17,9 +18,20 @@ ensure_selector_event_loop()
 
 
 def prewarm(proc: JobProcess) -> None:
-    # Engine/checkpointer are process-wide lazy singletons (see db/engine.py
-    # and graphs/checkpointer.py) -- nothing to eagerly build here yet, but
-    # this is the hook if that changes.
+    # Importing asyncpg/psycopg and the graph modules is expensive (hundreds
+    # of ms) and was happening lazily on the first DB call / first propose_*
+    # tool call of a live call, synchronously blocking the agent's event loop
+    # mid-session (seen as livekit.agents "event loop blocked" warnings, up to
+    # ~540ms importing receptionist.db.repositories.pending_actions from
+    # inside a tool_exec call). Pay that cost here instead, before any call
+    # is dispatched to this process.
+    from receptionist.db.engine import get_engine
+    from receptionist.graphs.booking_graph import build_booking_graph  # noqa: F401
+    from receptionist.graphs.cancellation_graph import build_cancellation_graph  # noqa: F401
+    from receptionist.graphs.registration_graph import build_registration_graph  # noqa: F401
+    from receptionist.graphs.reschedule_graph import build_reschedule_graph  # noqa: F401
+
+    get_engine()
     proc.userdata["ready"] = True
 
 
@@ -29,9 +41,11 @@ async def entrypoint(ctx: JobContext) -> None:
     call_state = CallState(call_session_id=ctx.room.name)
     session = AgentSession(llm=build_gpt_live_model(), userdata=call_state)
     attach_observability(session, call_state.call_session_id)
+    attach_auto_hangup(session, ctx)
 
     agent: Agent = ReceptionistAgent()
     await session.start(agent, room=ctx.room)
+    session.generate_reply(instructions="Greet the caller warmly and ask how you can help today.")
 
 
 if __name__ == "__main__":

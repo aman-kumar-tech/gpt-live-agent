@@ -80,6 +80,45 @@ async def get_package_info(context: RunContext[CallState], name: str) -> str:
 
 
 @function_tool
+async def list_available_tests(context: RunContext[CallState]) -> str:
+    """List every individual test this lab offers, with price. Use this when
+    the caller asks what tests are available, or -- before collecting their
+    name, phone, or an appointment time -- to confirm a test they named by
+    themselves actually exists (get_test_info works too for a single name).
+    Checking early means an unavailable test is caught before wasting the
+    caller's time on details that turn out to be for nothing."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        tests = await catalog_repo.list_active_tests(session)
+
+    # the seed data has several identically-named fixture rows (distinct
+    # codes) for exercising the home-collection-ineligible path -- collapse
+    # by name so the caller doesn't hear the same test repeated needlessly
+    by_name = {}
+    for t in tests:
+        by_name.setdefault(t.name, t)
+
+    if not by_name:
+        return "No tests are currently available."
+    return "; ".join(f"{t.name} ({settings.currency_symbol}{t.price:.2f})" for t in by_name.values())
+
+
+@function_tool
+async def list_available_packages(context: RunContext[CallState]) -> str:
+    """List every health package/bundle this lab offers, with price. Use
+    this when the caller asks what packages are available, or to confirm a
+    package they named exists before collecting their other booking
+    details (get_package_info works too for a single name)."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        packages = await catalog_repo.list_active_packages(session)
+
+    if not packages:
+        return "No packages are currently available."
+    return "; ".join(f"{p.name} ({settings.currency_symbol}{p.price:.2f})" for p in packages)
+
+
+@function_tool
 async def list_offers(context: RunContext[CallState]) -> str:
     """List all currently active promotional offers."""
     session_factory = get_session_factory()

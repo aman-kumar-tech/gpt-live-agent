@@ -37,7 +37,8 @@ async def check_appointment_availability(context: RunContext[CallState], on_date
 
         open_time = time.fromisoformat(hours["open"])
         close_time = time.fromisoformat(hours["close"])
-        slots = await appointments_repo.list_open_slots(session, day, open_time, close_time)
+        lead_time_hours = await lab_info_repo.get_booking_lead_time_hours(session)
+        slots = await appointments_repo.list_open_slots(session, day, open_time, close_time, lead_time_hours)
 
     if not slots:
         return f"No open slots on {day.strftime('%A, %B %d')}."
@@ -86,8 +87,8 @@ async def propose_appointment_booking(
     Args:
         appointment_type: Either "lab_visit" or "home_collection".
         scheduled_at: ISO datetime (YYYY-MM-DDTHH:MM:SS) for the appointment, chosen from check_appointment_availability.
-        test_names: Names of individual tests to book, if any.
-        package_name: Name of a health package to book, if any.
+        test_names: Names of individual standalone tests to book, if any. Use exactly what the caller most recently agreed to -- don't fall back to a test you suggested earlier if they went on to agree to a package instead.
+        package_name: Name of a health package/bundle to book, if any -- use this, not test_names, for anything bundled (e.g. "Fever Panel Test" is a package name despite containing the word "test"; use package_name="Fever Panel Test", not test_names=["Fever Panel Test"] or a component test).
         address: Required if appointment_type is "home_collection".
     """
     if context.userdata.patient_id is None:
