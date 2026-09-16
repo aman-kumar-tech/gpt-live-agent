@@ -197,11 +197,11 @@ async def main() -> None:
             )
 
         # --- sample patients/reports/appointments (not in data.json) ------
-        p1 = Patient(full_name="Priya Sharma", phone_number="+919812340001", date_of_birth=date(1990, 4, 12), email="priya@example.com")
-        p2 = Patient(full_name="Rohan Sharma", phone_number="+919812340001", date_of_birth=date(1988, 11, 2))  # shares phone with p1
-        p3 = Patient(full_name="Amit Verma", phone_number="+919812340002", date_of_birth=date(1975, 2, 20))
-        p4 = Patient(full_name="Neha Gupta", phone_number="+919812340003", date_of_birth=date(2001, 7, 30))
-        p5 = Patient(full_name="Sanjay Rao", phone_number="+919812340004", date_of_birth=date(1965, 9, 15))
+        p1 = Patient(first_name="Priya", last_name="Sharma", phone_number="+919812340001", date_of_birth=date(1990, 4, 12), email="priya@example.com")
+        p2 = Patient(first_name="Rohan", last_name="Sharma", phone_number="+919812340001", date_of_birth=date(1988, 11, 2))  # shares phone with p1
+        p3 = Patient(first_name="Amit", last_name="Verma", phone_number="+919812340002", date_of_birth=date(1975, 2, 20))
+        p4 = Patient(first_name="Neha", last_name="Gupta", phone_number="+919812340003", date_of_birth=date(2001, 7, 30))
+        p5 = Patient(first_name="Sanjay", last_name="Rao", phone_number="+919812340004", date_of_birth=date(1965, 9, 15))
         session.add_all([p1, p2, p3, p4, p5])
         await session.flush()
 

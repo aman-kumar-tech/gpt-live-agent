@@ -1,17 +1,26 @@
-"""Call-level observability: tokens and errors.
+"""Call-level observability: tokens, errors, and tool calls.
 
-Wires three AgentSession events (see LiveKit's voice/events.py -- these are
+Wires four AgentSession events (see LiveKit's voice/events.py -- these are
 the current, non-deprecated ones):
 
 - session_usage_updated -> cumulative AgentSessionUsage.model_usage gives
   token counts per model (input/output, audio/text/cached breakdown).
 - error -> LLMError/STTError/TTSError/RealtimeModelError etc.
 - close -> how and why the call ended.
+- function_tools_executed -> every tool call this turn, with its arguments
+  and result/error. Without this there is no record anywhere of what a
+  caller actually asked for or what a tool returned (an exception inside a
+  tool, like the identify_patient crash this was added after, never reaches
+  the `error` listener above -- that one only fires for session-level
+  STT/LLM/TTS/etc. errors) -- diagnosing a bad call meant reading raw
+  DEBUG-level docker logs, if they hadn't already rotated away.
 
 conversation_item_added's per-turn latency fields (e2e_latency, llm_node_ttft
 etc. on assistant ChatMessage.metrics) are STT->LLM->TTS pipeline metrics --
 GPT-Live is a speech-to-speech realtime model, so they're never populated,
-and there's deliberately no listener for that event here.
+and there's deliberately no listener for that event here. This still does
+NOT log conversation text (what the caller/agent actually said) -- only
+which tools were called, with what arguments, and what they returned.
 
 Every event is persisted to the call_events table (one row each, raw) so any
 report can be built with a SQL query later; see scripts/usage_report.py for
@@ -29,6 +38,7 @@ from livekit.agents import (
     AgentSession,
     CloseEvent,
     ErrorEvent,
+    FunctionToolsExecutedEvent,
     SessionUsageUpdatedEvent,
 )
 
@@ -86,6 +96,24 @@ def attach_observability(session: AgentSession, call_session_id: str) -> None:
 
         _fire_and_forget(_write())
 
+    def _on_function_tools_executed(event: FunctionToolsExecutedEvent) -> None:
+        for call, output in event.zipped():
+            payload = {
+                "name": call.name,
+                "arguments": call.arguments,
+                "output": output.output,
+                "is_error": output.is_error,
+            }
+            if output.is_error:
+                logger.warning("call %s: tool %s failed: %s", call_session_id, call.name, output.output)
+
+            async def _write(payload=payload) -> None:
+                async with session_factory() as db_session:
+                    await record_event(db_session, call_session_id, "tool_call", payload)
+
+            _fire_and_forget(_write())
+
     session.on("session_usage_updated", _on_session_usage_updated)
     session.on("error", _on_error)
     session.on("close", _on_close)
+    session.on("function_tools_executed", _on_function_tools_executed)

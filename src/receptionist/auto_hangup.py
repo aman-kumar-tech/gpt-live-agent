@@ -36,6 +36,15 @@ Three things this got wrong across earlier passes, all fixed here:
    synchronous, doesn't depend on which event arrives first -- and only
    falls back to waiting for the next transition if speech is still
    genuinely in progress at that moment.
+
+4. Matching the farewell phrase anywhere in the turn's text, not just at its
+   end: observed live cutting off a registration/booking mid-flow, because
+   gpt-4o-mini routinely says "I'll take care of registering you" / "let me
+   take care of that booking" as filler -- ordinary "I'll handle it"
+   phrasing, not a goodbye, but the same words. Anchoring the match to the
+   end of the turn (only trailing whitespace/punctuation allowed after it)
+   keeps "take care" etc. as sign-offs while no longer matching that filler,
+   since a real goodbye is always the last thing said in the turn.
 """
 
 from __future__ import annotations
@@ -50,7 +59,8 @@ from livekit.agents.voice.events import AgentStateChangedEvent
 logger = logging.getLogger("receptionist.auto_hangup")
 
 _FAREWELL_RE = re.compile(
-    r"\b(take care|goodbye|good bye|bye\b|have a (great|good|wonderful) day)", re.IGNORECASE
+    r"\b(take care|goodbye|good bye|bye|have a (great|good|wonderful) day)\b[\s.!?]*\Z",
+    re.IGNORECASE,
 )
 _GRACE_SECONDS = 3.0
 

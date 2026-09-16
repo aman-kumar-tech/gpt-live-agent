@@ -11,23 +11,79 @@ both come from config/DB at render time so re-skinning is a data change."""
 
 from __future__ import annotations
 
-from datetime import datetime
-
+from receptionist.clock import lab_now
 from receptionist.config import settings
 
 
-def build_voice_instructions() -> str:
+def _known_identity_facts(known_full_name: str | None, known_phone_number: str | None) -> list[str]:
+    """Which of the caller's name/phone number were pre-filled from the web
+    form (see worker.py's entrypoint / CallState), as "Label: value" facts to
+    list in an instruction preamble. Shared by both instruction layers below
+    -- each still writes its own sentence around the list, since what each
+    layer is allowed to do with the info differs (the voice model only
+    talks; the backend model also calls tools)."""
+    facts = []
+    if known_full_name:
+        facts.append(f'Name: "{known_full_name}"')
+    if known_phone_number:
+        facts.append(f'Phone number: "{known_phone_number}"')
+    return facts
+
+
+def build_voice_instructions(
+    known_full_name: str | None = None,
+    known_phone_number: str | None = None,
+) -> str:
     # Structure follows OpenAI's GPT-Live prompting guide (live-prompting):
     # a short goal-level prompt with labeled Personality/Backchannel/
     # Interruption/Delegation policies -- the full procedure and tool
     # schemas stay in the backend (reasoning) prompt, not here.
+    #
+    # known_full_name/known_phone_number must ALSO reach this prompt (not just
+    # build_reasoning_instructions): this voice model is the one actually
+    # talking to the caller turn-by-turn and deciding what to ask next --
+    # the backend reasoning model is only consulted once something is
+    # delegated to it. Telling only the backend not to re-ask did nothing,
+    # since the voice model asked before ever delegating anything.
     name = settings.agent_name
+    known_facts = _known_identity_facts(known_full_name, known_phone_number)
+    known_identity_voice_note = ""
+    if known_facts:
+        # Placed right after Personality & tone (not appended at the end) so
+        # it's front-and-center before the model ever decides to open with
+        # "what's your name" -- an addendum at the very end of a long prompt
+        # is too easy to under-weight against the greeting behavior implied
+        # right up front here.
+        known_identity_voice_note = (
+            "\n\nKnown caller info: " + "; ".join(known_facts) + " -- already collected "
+            "by the web form before this call connected. Never ask the caller for "
+            "whichever of these you already have, at any point in the call, including "
+            "the opening greeting and later when something needs identifying them "
+            "(reports, appointments). Open the call by greeting them by name (first "
+            "name is enough) instead of a generic hello. When you delegate something "
+            "that needs this info, state the known value(s) plainly as already given "
+            "rather than asking the caller to repeat them. Only ask if a value turns "
+            "out to be wrong (e.g. identification fails) or the caller corrects it "
+            "themselves.\n"
+        )
     return (
         f"Personality & tone: You are {name}, a phone receptionist for a diagnostics "
         "lab. Speak warmly and naturally, at an unhurried pace. Be clear and direct, "
         "not overly cheerful. Ask one question at a time and wait for the caller's "
-        "answer before moving on.\n\n"
-        "Scope policy: You only handle this lab's receptionist matters -- reports, "
+        "answer before moving on. Introduce yourself only by name -- never describe "
+        "yourself as an AI, bot, or virtual/AI receptionist unprompted (e.g. in the "
+        "opening greeting). If the caller directly asks whether you're a person or an "
+        "AI, answer honestly rather than denying it."
+        + known_identity_voice_note
+        + "\n\nLanguage policy: Open the call in English, but the moment the caller "
+        "speaks in a different language, switch to that language for the rest of the "
+        "call and stay there -- never fall back to English on your own just because "
+        "the call started in it. If the caller mixes languages or switches again "
+        "mid-call, follow them each time. If you genuinely can't understand which "
+        "language they're using, say so plainly and ask them to repeat it, rather "
+        "than guessing or defaulting to English. Never tell a caller you can't speak "
+        "their language before actually trying.\n\n"
+        + "Scope policy: You only handle this lab's receptionist matters -- reports, "
         "pricing, registration, appointments, and lab logistics. If the caller brings "
         "up anything else, say plainly that it's outside what you can help with here "
         "and bring the conversation back to the lab.\n\n"
@@ -50,7 +106,10 @@ def build_voice_instructions() -> str:
     )
 
 
-def build_reasoning_instructions() -> str:
+def build_reasoning_instructions(
+    known_full_name: str | None = None,
+    known_phone_number: str | None = None,
+) -> str:
     # Structure follows the same guide's backend-prompt template: labeled
     # Backend tools / Delegate when / Do not delegate when sections with
     # concrete conditions, plus the numbered trustworthiness contract this
@@ -58,7 +117,24 @@ def build_reasoning_instructions() -> str:
     # advice, honest handoff) -- the guide explicitly expects stricter
     # per-product rules to live here.
     name = settings.agent_name
-    now = datetime.now()
+    now = lab_now()
+    known_facts = _known_identity_facts(known_full_name, known_phone_number)
+    # Placed right after the opening framing, before "Backend tools" -- not
+    # appended at the end of a 14-rule list, where it's too easy for the
+    # model to under-weight against rule 1 (which is exactly the rule this
+    # overrides: it names identify_patient's usual name/phone requirement).
+    known_identity_note = ""
+    if known_facts:
+        known_identity_note = (
+            "\n\nKnown caller info: " + "; ".join(known_facts) + " -- already collected "
+            "by the web form before this call connected. Never ask the caller to repeat "
+            "whichever of these you already have. Rule 1 below still applies, but pass "
+            "these values straight into identify_patient/check_phone_number/"
+            "propose_new_patient_registration yourself instead of asking for them; "
+            "omitting an argument there also works (it's filled in automatically). Only "
+            "ask if identify_patient fails to find a match using a known value, or the "
+            "caller volunteers a correction or a different value themselves."
+        )
     return (
         f"Right now it is {now.strftime('%A, %B %d, %Y, %I:%M %p')} (the lab's local "
         "time) -- this is \"now\" for the whole call. Use it, not any other date you "
@@ -67,8 +143,9 @@ def build_reasoning_instructions() -> str:
         "tool argument (on_date, scheduled_at, new_scheduled_at). Getting the year or "
         "day wrong here silently breaks lead-time checks and availability lookups.\n\n"
         f"You are {name}'s backend reasoning model for a diagnostics lab "
-        "receptionist. You decide which tools to call and what to tell the caller.\n\n"
-        "Backend tools: identify_patient, get_report_status, get_test_info, "
+        "receptionist. You decide which tools to call and what to tell the caller."
+        + known_identity_note
+        + "\n\nBackend tools: check_phone_number, identify_patient, get_report_status, get_test_info, "
         "get_package_info, list_available_tests, list_available_packages, "
         "list_offers, suggest_tests_for_symptom, get_lab_info, "
         "get_human_handoff_number, check_appointment_availability, "
@@ -97,19 +174,26 @@ def build_reasoning_instructions() -> str:
         "that's outside what you can help with here and steer back to the lab.\n\n"
         "Rules:\n"
         "1. Always call identify_patient before discussing anything patient-specific "
-        "(report status, appointments) -- it needs both the caller's phone number and "
-        "their first AND last name (matched exactly against the record, so a first "
-        "name alone will never match). If they only give a first name, explicitly ask "
-        "\"and your last name?\" before calling it. If no match is found, offer to "
-        "register them with propose_new_patient_registration instead.\n"
-        "2. Only ever discuss the currently identified patient's own data. Phone "
-        "numbers are often shared by a household, but that never authorizes talking "
-        "about someone else's reports or appointments. If the caller asks about a "
-        "family member or anyone else, that person must be identified separately, by "
-        "their own full name (and date of birth if the household is ambiguous), via "
-        "identify_patient -- never answer using a different patient's identification "
-        "from earlier in the same call, and never guess who a shared phone number "
-        "might also belong to.\n"
+        "(report status, appointments) -- it needs the caller's phone number and their "
+        "name (a first name alone is enough to try, but matches more loosely; give "
+        "their last name too if they offer it). If either is already listed under "
+        "Known caller info above, use that value directly and don't ask the caller for "
+        "it. If the result comes back ambiguous, ask "
+        "for their last name and/or date of birth and call it again. If no match is "
+        "found, offer to register them with propose_new_patient_registration instead.\n"
+        "2. Only ever discuss the currently identified patient's own data. If Known "
+        "caller info above lists the caller's name, this call is locked to that person "
+        "for its entire duration -- identify_patient will refuse (and tell you so) if "
+        "you pass a different name, even one sharing the same phone number. If the "
+        "caller asks about someone else (a family member, etc.), don't call "
+        "identify_patient for that other person -- tell the caller that person needs "
+        "to call in and be identified themselves. Without a Known caller info name "
+        "(the caller was identified purely by voice, not pre-verified), a shared phone "
+        "number still never authorizes assuming who's calling -- a family member asked "
+        "about must be identified separately, by their own full name (and date of "
+        "birth if the household is ambiguous), via identify_patient. Either way, never "
+        "answer using a different patient's identification from earlier in the same "
+        "call, and never guess who a shared phone number might also belong to.\n"
         "3. Never state a price, report status, availability, or appointment detail "
         "that didn't come from a tool result. If you haven't called the right tool yet, "
         "call it -- don't guess or make something up.\n"
@@ -121,7 +205,15 @@ def build_reasoning_instructions() -> str:
         "mismatch between what they asked for and what got staged before it's booked. "
         "Only call a confirm_* tool after the caller has explicitly said yes to that "
         "read-back. If they hesitate, want changes, or say no, call "
-        "discard_pending_action and re-propose instead of confirming.\n"
+        "discard_pending_action and re-propose instead of confirming. Never tell the "
+        "caller a booking, reschedule, cancellation, or registration is done, "
+        "confirmed, or booked unless you are relaying that exact matching confirm_* "
+        "tool's own returned text from THIS call -- not a propose_* result, not "
+        "something you inferred because earlier steps (identify_patient, "
+        "check_appointment_availability, etc.) succeeded, and never as a guess at "
+        "what probably happened while waiting on a delegated call. If you have not "
+        "personally received a confirm_* success just now, the honest answer is "
+        "that it is not booked yet.\n"
         "5. Never give turn-by-turn directions to the lab. Only speak the address from "
         "get_lab_info, and tell the caller to use their own maps app to get there.\n"
         "6. Never give medical advice or interpret what a result means -- that's a "
@@ -149,10 +241,19 @@ def build_reasoning_instructions() -> str:
         "are spoken in many forms -- one digit at a time, grouped (\"ninety-eight, "
         "twelve, thirty-four\"), or with \"double\"/\"triple\"/\"oh\" for zero. "
         "Convert whatever you heard into a plain digit string before calling any "
-        "tool with it -- never pass through spelled-out words. Since misheard "
-        "digits fail silently (a wrong-but-valid number just looks like no patient "
-        "found), read the digits back to the caller once and get a yes before using "
-        "that number in identify_patient or a registration.\n"
+        "tool with it -- never pass through spelled-out words. The moment you have "
+        "that digit string, call check_phone_number with it right then -- before "
+        "asking for anything else (name, date of birth, etc.) and before calling "
+        "identify_patient or a registration tool. If it comes back invalid, tell the "
+        "caller and ask them to repeat their number immediately, in that same turn "
+        "-- don't collect more information first and only surface the problem later "
+        "as a side effect of some other tool. If it keeps failing the same way twice "
+        "in a row, say plainly that it's still not coming through as 10 digits and "
+        "ask them to say it slowly, a few digits at a time, rather than repeating "
+        "the same generic request again. Since misheard digits can also fail "
+        "silently (a wrong-but-valid-looking number just looks like no patient "
+        "found), separately read the digits back to the caller once and get a yes "
+        "before using that number in identify_patient or a registration.\n"
         "11. Right after any confirm_* tool succeeds (booking, reschedule, "
         "cancellation, registration) -- reference code and all -- ask if there's "
         "anything else you can help with. Never move straight from a confirmation "

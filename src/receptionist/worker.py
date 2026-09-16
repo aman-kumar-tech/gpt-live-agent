@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from dotenv import load_dotenv
 from livekit.agents import Agent, AgentSession, JobContext, JobProcess, WorkerOptions, cli
 
@@ -10,11 +12,14 @@ load_dotenv()
 from receptionist.agent import ReceptionistAgent, build_gpt_live_model
 from receptionist.auto_hangup import attach_auto_hangup
 from receptionist.call_state import CallState
+from receptionist.clock import lab_now
 from receptionist.config import settings
 from receptionist.observability import attach_observability
 from receptionist.winasync import ensure_selector_event_loop
 
 ensure_selector_event_loop()
+
+logger = logging.getLogger("receptionist.worker")
 
 
 def prewarm(proc: JobProcess) -> None:
@@ -35,17 +40,62 @@ def prewarm(proc: JobProcess) -> None:
     proc.userdata["ready"] = True
 
 
-async def entrypoint(ctx: JobContext) -> None:
-    await ctx.connect()
+def _opening_greeting_instructions(known_full_name: str | None) -> str:
+    """Wording for the very first generate_reply, said before the caller has
+    spoken -- separate from the ongoing "don't ask again" policy in
+    instructions.py (which governs the rest of the call), since this is a
+    one-shot instruction for a single reply, not a standing system prompt."""
+    if not known_full_name:
+        return f"Greet the caller warmly, introduce yourself as {settings.agent_name}, and ask how you can help today."
 
-    call_state = CallState(call_session_id=ctx.room.name)
-    session = AgentSession(llm=build_gpt_live_model(), userdata=call_state)
+    first_name = known_full_name.strip().split()[0]
+    hour = lab_now().hour
+    time_of_day = "morning" if hour < 12 else "afternoon" if hour < 17 else "evening"
+    return (
+        f'Open with a warm, brief greeting using the caller\'s first name, {first_name}, '
+        f'a good-{time_of_day} greeting, and introduce yourself as {settings.agent_name} -- '
+        f'e.g. "Hi {first_name}, good {time_of_day}! I\'m {settings.agent_name}." Never call '
+        'yourself an AI, bot, or assistant -- introduce yourself only by name, the way a '
+        "human receptionist would. Then ask how you can help today. Do not ask for their "
+        "name or phone number -- you already have both."
+    )
+
+
+async def entrypoint(ctx: JobContext) -> None:
+    # wait_for_participant() connects (if not already) and returns immediately
+    # if the caller already joined, so this picks up the phone_number/full_name
+    # attributes the web token server attached (server/token_server.py) without
+    # a race against the caller's join.
+    caller = await ctx.wait_for_participant()
+    # WARNING, not INFO/DEBUG: settings.log_level defaults to WARN (see
+    # config.py) to avoid backpressuring stdout, which would silently drop
+    # this. One line per call is not the noise that default is guarding
+    # against.
+    logger.warning(
+        "caller %s joined room %s with attributes=%r",
+        caller.identity, ctx.room.name, caller.attributes,
+    )
+
+    call_state = CallState(
+        call_session_id=ctx.room.name,
+        known_full_name=caller.attributes.get("full_name") or None,
+        known_phone_number=caller.attributes.get("phone_number") or None,
+    )
+    llm = build_gpt_live_model(
+        known_full_name=call_state.known_full_name,
+        known_phone_number=call_state.known_phone_number,
+    )
+    session = AgentSession(llm=llm, userdata=call_state)
     attach_observability(session, call_state.call_session_id)
     attach_auto_hangup(session, ctx)
 
-    agent: Agent = ReceptionistAgent()
+    agent: Agent = ReceptionistAgent(
+        known_full_name=call_state.known_full_name,
+        known_phone_number=call_state.known_phone_number,
+    )
     await session.start(agent, room=ctx.room)
-    session.generate_reply(instructions="Greet the caller warmly and ask how you can help today.")
+
+    session.generate_reply(instructions=_opening_greeting_instructions(call_state.known_full_name))
 
 
 if __name__ == "__main__":

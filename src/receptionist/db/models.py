@@ -16,7 +16,9 @@ class Patient(Base):
     __tablename__ = "patients"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
-    full_name: Mapped[str]
+    first_name: Mapped[str]
+    middle_name: Mapped[str | None]
+    last_name: Mapped[str | None]
     phone_number: Mapped[str]
     date_of_birth: Mapped[date | None]
     gender: Mapped[str | None]
@@ -24,6 +26,10 @@ class Patient(Base):
     address: Mapped[str | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    @property
+    def full_name(self) -> str:
+        return " ".join(part for part in (self.first_name, self.middle_name, self.last_name) if part)
 
 
 class Test(Base):
@@ -169,7 +175,7 @@ class CallEvent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     call_session_id: Mapped[str]
     event_type: Mapped[str] = mapped_column(
-        CheckConstraint("event_type IN ('usage', 'latency', 'error', 'close')")
+        CheckConstraint("event_type IN ('usage', 'latency', 'error', 'close', 'tool_call')")
     )
     payload: Mapped[dict] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

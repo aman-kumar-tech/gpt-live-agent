@@ -1,8 +1,12 @@
-const TOKEN_SERVER_URL = "http://localhost:8080";
+// Set by config.js (served dynamically by serve.py from TOKEN_SERVER_URL),
+// so this default only applies when opening this file without that server.
+const TOKEN_SERVER_URL = window.TOKEN_SERVER_URL || "http://localhost:8080";
 
 const screenConnect = document.getElementById("screen-connect");
 const screenCall = document.getElementById("screen-call");
 
+const callerNameInput = document.getElementById("callerName");
+const callerNameError = document.getElementById("callerNameError");
 const phoneInput = document.getElementById("phone");
 const phoneError = document.getElementById("phoneError");
 const connectBtn = document.getElementById("connectBtn");
@@ -27,6 +31,10 @@ function setConnectStatus(text, isError) {
 
 function isValidPhone(value) {
   return /\d{7,}/.test(value.replace(/[^\d]/g, ""));
+}
+
+function isValidName(value) {
+  return value.trim().length > 0;
 }
 
 function showCallScreen() {
@@ -86,7 +94,7 @@ function renderTranscriptChunk(text, participantInfo, attributes) {
   transcriptEl.scrollTop = transcriptEl.scrollHeight;
 }
 
-async function startCall(phoneNumber) {
+async function startCall(callerName, phoneNumber) {
   setConnectStatus("Requesting a room token...");
   connectBtn.disabled = true;
   connectBtnLabel.textContent = "Connecting...";
@@ -96,7 +104,7 @@ async function startCall(phoneNumber) {
     const res = await fetch(`${TOKEN_SERVER_URL}/api/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone_number: phoneNumber }),
+      body: JSON.stringify({ full_name: callerName, phone_number: phoneNumber }),
     });
     if (!res.ok) throw new Error(`token request failed (${res.status})`);
     tokenData = await res.json();
@@ -110,7 +118,22 @@ async function startCall(phoneNumber) {
   room = new LivekitClient.Room();
 
   room.registerTextStreamHandler("lk.transcription", async (reader, participantInfo) => {
-    const text = await reader.readAll();
+    // The agent's own speech is one continuous stream for its whole
+    // utterance (reused across every text delta, only closed at the end) --
+    // readAll() would block until then, so its bubble only ever appeared
+    // once, fully formed, after it stopped talking. Consuming chunk by
+    // chunk instead makes it grow live, the same way the caller's own
+    // transcript already does (that side is unaffected: its updates each
+    // arrive as their own already-complete, immediately-closed stream, so
+    // this loop still only runs once per chunk there too).
+    let text = "";
+    for await (const chunk of reader) {
+      text += chunk;
+      renderTranscriptChunk(text, participantInfo, reader.info.attributes || {});
+    }
+    // Re-render once more after the stream closes in case final-turn
+    // attributes (e.g. lk.transcription_final) only land on reader.info
+    // once the stream is fully closed, not on every chunk.
     renderTranscriptChunk(text, participantInfo, reader.info.attributes || {});
   });
 
@@ -144,16 +167,32 @@ async function startCall(phoneNumber) {
 }
 
 connectBtn.addEventListener("click", () => {
-  const value = phoneInput.value.trim();
-  if (!isValidPhone(value)) {
+  const nameValue = callerNameInput.value.trim();
+  const phoneValue = phoneInput.value.trim();
+  let valid = true;
+
+  if (!isValidName(nameValue)) {
+    callerNameInput.classList.add("invalid");
+    callerNameError.textContent = "Enter your name.";
+    valid = false;
+  } else {
+    callerNameInput.classList.remove("invalid");
+    callerNameError.textContent = "";
+  }
+
+  if (!isValidPhone(phoneValue)) {
     phoneInput.classList.add("invalid");
     phoneError.textContent = "Enter a valid phone number.";
-    return;
+    valid = false;
+  } else {
+    phoneInput.classList.remove("invalid");
+    phoneError.textContent = "";
   }
-  phoneInput.classList.remove("invalid");
-  phoneError.textContent = "";
+
+  if (!valid) return;
+
   setConnectStatus("");
-  startCall(value);
+  startCall(nameValue, phoneValue);
 });
 
 hangupBtn.addEventListener("click", async () => {

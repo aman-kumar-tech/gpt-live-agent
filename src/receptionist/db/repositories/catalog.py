@@ -3,6 +3,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from receptionist.clock import lab_today
 from receptionist.db.models import Offer, Package, PackageTest, SymptomRoute, Test
 
 
@@ -71,7 +72,7 @@ async def find_symptom_route(session: AsyncSession, symptom: str) -> SymptomRout
 
 
 async def list_active_offers(session: AsyncSession, on_date: date | None = None) -> list[Offer]:
-    on_date = on_date or date.today()
+    on_date = on_date or lab_today()
     result = await session.execute(
         select(Offer).where(
             Offer.active.is_(True),

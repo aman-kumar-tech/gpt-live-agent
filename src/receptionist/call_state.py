@@ -37,6 +37,11 @@ class CallState:
     call_session_id: str
     patient_id: str | None = None
 
+    # Pre-filled from the web form's participant attributes (see worker.py's
+    # entrypoint) so the agent can use them without asking the caller again.
+    known_full_name: str | None = None
+    known_phone_number: str | None = None
+
     pending_kind: PendingKind | None = None
     pending_thread_id: str | None = None
 

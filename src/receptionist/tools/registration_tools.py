@@ -12,8 +12,8 @@ from receptionist.call_state import CallState
 @function_tool
 async def propose_new_patient_registration(
     context: RunContext[CallState],
-    full_name: str,
-    phone_number: str,
+    full_name: str | None = None,
+    phone_number: str | None = None,
     date_of_birth: str | None = None,
     gender: str | None = None,
     email: str | None = None,
@@ -24,13 +24,15 @@ async def propose_new_patient_registration(
     confirm_new_patient_registration after they explicitly say yes.
 
     Args:
-        full_name: The caller's first AND last name -- ask for both if they only give one; never invent or default this (e.g. "User", "Guest") to fill it in.
-        phone_number: The caller's phone number as plain digits only (e.g. "9812340003"). Ask for just the local number, not "+91"/"+1" etc. -- but if they give a country code anyway, that's fine too, just pass along whatever digits they said (with or without it). No spaces, dashes, or spelled-out words. Convert however the caller said it (spoken digit by digit, grouped like "ninety-eight twelve", or with "double"/"triple"/"oh") into that digit string yourself first.
+        full_name: The caller's name, as they give it (a single first name is fine; give last name and/or middle name too if they offer them). Never invent or default this (e.g. "User", "Guest") to fill it in. Omit this if the caller's name was already provided before the call started (you'll be told so) -- it's used automatically.
+        phone_number: The caller's phone number as plain digits only (e.g. "9812340003"). Ask for just the local number, not "+91"/"+1" etc. -- but if they give a country code anyway, that's fine too, just pass along whatever digits they said (with or without it). No spaces, dashes, or spelled-out words. Convert however the caller said it (spoken digit by digit, grouped like "ninety-eight twelve", or with "double"/"triple"/"oh") into that digit string yourself first. Omit this if the caller's phone number was already provided before the call started (you'll be told so) -- it's used automatically.
         date_of_birth: ISO date (YYYY-MM-DD), if the caller gives one.
         gender: If the caller gives one.
         email: If the caller gives one.
         address: If the caller gives one.
     """
+    full_name = full_name or context.userdata.known_full_name
+    phone_number = phone_number or context.userdata.known_phone_number
     graph = await context.userdata.get_graph("registration")
     thread_id = str(uuid.uuid4())
     result = await graph.ainvoke(

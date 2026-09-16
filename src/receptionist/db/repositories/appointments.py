@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from receptionist.clock import lab_now
 from receptionist.db.models import Appointment, AppointmentItem
 
 # Simple constant-capacity heuristic for v1 (no dedicated slots/capacity
@@ -50,7 +51,7 @@ async def list_open_slots(
     would offer a slot (e.g. today's opening time) that propose_appointment_
     booking then turns around and rejects as too soon."""
     slots: list[datetime] = []
-    earliest = datetime.now() + timedelta(hours=lead_time_hours)
+    earliest = lab_now() + timedelta(hours=lead_time_hours)
     current = datetime.combine(on_date, open_time)
     end = datetime.combine(on_date, close_time)
     while current < end:
@@ -108,7 +109,7 @@ async def list_upcoming_for_patient(session: AsyncSession, patient_id: UUID) -> 
         .where(
             Appointment.patient_id == patient_id,
             Appointment.status.in_(("booked",)),
-            Appointment.scheduled_at >= datetime.now(),
+            Appointment.scheduled_at >= lab_now(),
         )
         .order_by(Appointment.scheduled_at)
     )

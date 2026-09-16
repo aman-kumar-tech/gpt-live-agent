@@ -6,7 +6,9 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS patients (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    full_name       text NOT NULL,
+    first_name      text NOT NULL,
+    middle_name     text,
+    last_name       text,
     phone_number    text NOT NULL,
     date_of_birth   date,
     gender          text,
@@ -154,7 +156,7 @@ CREATE TABLE IF NOT EXISTS symptom_routes (
 CREATE TABLE IF NOT EXISTS call_events (
     id                serial PRIMARY KEY,
     call_session_id   text NOT NULL,
-    event_type        text NOT NULL CHECK (event_type IN ('usage', 'latency', 'error', 'close')),
+    event_type        text NOT NULL CHECK (event_type IN ('usage', 'latency', 'error', 'close', 'tool_call')),
     payload           jsonb NOT NULL,
     created_at        timestamp NOT NULL DEFAULT now()
 );

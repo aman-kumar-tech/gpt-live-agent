@@ -109,7 +109,7 @@
       color: var(--danger);
     }
 
-    input[type="tel"] {
+    .field input {
       width: 100%;
       padding: 13px 14px;
       font-size: 1rem;
@@ -122,12 +122,12 @@
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    input[type="tel"]:focus {
+    .field input:focus {
       border-color: var(--brand);
       box-shadow: 0 0 0 4px var(--brand-soft);
     }
 
-    input[type="tel"].invalid {
+    .field input.invalid {
       border-color: var(--danger);
     }
 
@@ -350,6 +350,13 @@
           </p>
 
           <div class="field">
+            <label for="callerName">Your name <span class="req">*</span></label>
+            <input id="callerName" type="text" placeholder="e.g. Aman Kumar"
+                   autocomplete="name" required />
+            <div class="field-error" id="callerNameError"></div>
+          </div>
+
+          <div class="field">
             <label for="phone">Phone number <span class="req">*</span></label>
             <input id="phone" type="tel" inputmode="tel" placeholder="e.g. +91 12345 00001"
                    autocomplete="tel" required />
@@ -388,6 +395,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

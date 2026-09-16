@@ -54,6 +54,23 @@ async def test_get_report_status_without_identify_first():
     assert "identify_patient" in result
 
 
+async def test_identify_patient_refuses_a_different_person_once_caller_is_known():
+    # Priya Sharma and Rohan Sharma share SEEDED_PATIENT_PHONE (see
+    # test_patient_privacy.py) -- a pre-verified caller (known_full_name from
+    # the web form) must not be able to pivot to a household member's own
+    # records just by naming them, even sharing that same phone number.
+    ctx = _FakeContext(userdata=CallState(call_session_id="smoke-test", known_full_name="Priya Sharma"))
+    result = await identify_patient._func(ctx, "Rohan Sharma", SEEDED_PATIENT_PHONE)
+    assert "already identified as Priya Sharma" in result
+    assert ctx.userdata.patient_id is None
+
+    # The known caller identifying themselves (even a shorter form of their
+    # own name) must still work normally.
+    result = await identify_patient._func(ctx, "Priya", SEEDED_PATIENT_PHONE)
+    assert "Priya Sharma" in result
+    assert ctx.userdata.patient_id is not None
+
+
 async def test_catalog_lookups():
     ctx = _ctx()
     assert "₹350.00" in await get_test_info._func(ctx, "CBC")

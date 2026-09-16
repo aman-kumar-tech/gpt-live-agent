@@ -6,14 +6,13 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from receptionist.db.engine import get_session_factory
 from receptionist.db.repositories import patients as patients_repo
 from receptionist.db.repositories.pending_actions import create_pending_action
 from receptionist.graphs.checkpointer import get_checkpointer
-from receptionist.graphs.state import await_confirmation, finalize_pending_action
+from receptionist.graphs.state import build_propose_confirm_graph, finalize_pending_action
 from receptionist.validation import parse_date_of_birth, validate_full_name, validate_phone_number
 
 
@@ -72,13 +71,6 @@ async def _validate_and_stage(state: RegistrationState) -> RegistrationState:
     return {**state, "pending_action_id": str(action.id), "summary": summary}
 
 
-def _wait_for_confirmation(state: RegistrationState) -> RegistrationState:
-    if state.get("error"):
-        return state
-    confirmed = await_confirmation(state["summary"] or "")
-    return {**state, "confirmed": confirmed}
-
-
 async def _commit_or_abort(state: RegistrationState) -> RegistrationState:
     if state.get("error") or not state.get("pending_action_id"):
         return state
@@ -107,12 +99,5 @@ async def _commit_or_abort(state: RegistrationState) -> RegistrationState:
 
 async def build_registration_graph() -> CompiledStateGraph:
     checkpointer = await get_checkpointer()
-    graph = StateGraph(RegistrationState)
-    graph.add_node("validate_and_stage", _validate_and_stage)
-    graph.add_node("wait_for_confirmation", _wait_for_confirmation)
-    graph.add_node("commit_or_abort", _commit_or_abort)
-    graph.add_edge(START, "validate_and_stage")
-    graph.add_edge("validate_and_stage", "wait_for_confirmation")
-    graph.add_edge("wait_for_confirmation", "commit_or_abort")
-    graph.add_edge("commit_or_abort", END)
+    graph = build_propose_confirm_graph(RegistrationState, _validate_and_stage, _commit_or_abort)
     return graph.compile(checkpointer=checkpointer)

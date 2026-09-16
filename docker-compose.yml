@@ -20,7 +20,7 @@ services:
     image: adminer:latest
     restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "${ADMINER_PORT:-8081}:8080"
     depends_on:
       - postgres
 
@@ -28,23 +28,48 @@ services:
     image: livekit/livekit-server:latest
     restart: unless-stopped
     command: --config /etc/livekit.yaml --dev --bind 0.0.0.0
+    # ${LIVEKIT_CONFIG:-./livekit.yaml} so a second stack (--env-file .env.v2,
+    # which sets LIVEKIT_CONFIG=./livekit.v2.yaml) gets its own config with
+    # its own ports baked in -- see the port mapping note below for why that
+    # second file is necessary, not just a different LIVEKIT_PORT value here.
     volumes:
-      - ./livekit.yaml:/etc/livekit.yaml:ro
+      - ${LIVEKIT_CONFIG:-./livekit.yaml}:/etc/livekit.yaml:ro
+    # Unlike postgres/token (fixed internal port, host side varies), these
+    # must match host-to-container 1:1: livekit-server reads its own listen
+    # ports straight out of /etc/livekit.yaml and advertises those exact
+    # numbers to WebRTC clients as ICE candidates, without any awareness of
+    # Docker's port mapping. If the two sides differ, signaling still
+    # connects (that part follows the token server's `url`) but real media
+    # can never reach the container -- the same "could not establish pc
+    # connection" symptom node_ip above fixes for the Docker-network-IP
+    # case. So the numbers here must equal whatever's in the mounted config
+    # (./livekit.yaml: 7880/7881/50000-50019; ./livekit.v2.yaml:
+    # 7890/7891/50020-50039), not just any free host port.
     ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "50000-50019:50000-50019/udp"
+      - "${LIVEKIT_PORT:-7880}:${LIVEKIT_PORT:-7880}"
+      - "${LIVEKIT_PORT_RTC:-7881}:${LIVEKIT_PORT_RTC:-7881}"
+      - "${LIVEKIT_UDP_RANGE:-50000-50019}:${LIVEKIT_UDP_RANGE:-50000-50019}/udp"
 
   worker:
     build: .
     restart: unless-stopped
     command: ["python", "-m", "receptionist.worker", "dev"]
-    env_file: .env
+    # ${ENV_FILE:-.env} so a second stack run with --env-file .env.v2 (which
+    # sets ENV_FILE=.env.v2 itself) loads its own settings/secrets here too --
+    # not just the DATABASE_URL/etc. explicitly overridden below. Defaults to
+    # .env, unchanged, for the original stack.
+    env_file: ${ENV_FILE:-.env}
     environment:
       # Postgres is a separate container -- .env's DATABASE_URL/CHECKPOINTER_
       # DATABASE_URL say "localhost", which is only correct on the host.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
       CHECKPOINTER_DATABASE_URL: postgresql://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
+      # This worker shares livekit's network namespace, so "localhost" here
+      # means that same container -- and per the port-mapping note on the
+      # livekit service above, its internal listen port now always equals
+      # LIVEKIT_PORT (they're the same number by construction), so this can
+      # just reference that variable directly.
+      LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT:-7880}
     volumes:
       - .:/app
     depends_on:
@@ -64,15 +89,17 @@ services:
     build: .
     restart: unless-stopped
     command: ["python", "-m", "uvicorn", "server.token_server:app", "--host", "0.0.0.0", "--port", "8080"]
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
       CHECKPOINTER_DATABASE_URL: postgresql://${POSTGRES_USER:-receptionist}:${POSTGRES_PASSWORD:-receptionist}@postgres:5432/${POSTGRES_DB:-receptionist}
-      # NOT overridden: .env's LIVEKIT_URL (ws://localhost:7880) is handed
-      # to the browser as-is, which runs on the host where that's correct --
-      # this container never itself connects to LiveKit over the network.
+      # Overrides .env's LIVEKIT_URL with the port this stack's livekit
+      # container is actually published on, so the browser demo (which reads
+      # this from the token server) connects to the right one when running
+      # more than one stack side by side.
+      LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT:-7880}
     ports:
-      - "8080:8080"
+      - "${TOKEN_PORT:-8080}:8080"
     volumes:
       - .:/app
     depends_on:
@@ -82,9 +109,17 @@ services:
   web:
     build: .
     restart: unless-stopped
-    command: ["python", "-m", "http.server", "5500", "--directory", "web"]
+    command: ["python", "web/serve.py"]
+    environment:
+      # Browser-facing URL -- must be the HOST-published token port (this
+      # runs in the caller's browser, outside docker's network), so it's
+      # derived from TOKEN_PORT, not the container-internal 8080. Not
+      # WEB_PORT: that stays this container's fixed internal bind (5500,
+      # serve.py's own default), matching the ports mapping below -- only
+      # the host side of that mapping varies per stack.
+      TOKEN_SERVER_URL: http://localhost:${TOKEN_PORT:-8080}
     ports:
-      - "5500:5500"
+      - "${WEB_PORT:-5500}:5500"
     volumes:
       - .:/app
     depends_on:

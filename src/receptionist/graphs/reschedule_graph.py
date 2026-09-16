@@ -9,7 +9,6 @@ from datetime import datetime
 from typing import TypedDict
 from uuid import UUID
 
-from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -19,7 +18,7 @@ from receptionist.db.models import Appointment
 from receptionist.db.repositories import appointments as appointments_repo
 from receptionist.db.repositories.pending_actions import create_pending_action, get_pending_action
 from receptionist.graphs.checkpointer import get_checkpointer
-from receptionist.graphs.state import await_confirmation, finalize_pending_action
+from receptionist.graphs.state import build_propose_confirm_graph, finalize_pending_action
 
 
 class RescheduleState(TypedDict, total=False):
@@ -64,13 +63,6 @@ async def _validate_and_stage(state: RescheduleState) -> RescheduleState:
     return {**state, "pending_action_id": str(action.id), "summary": summary}
 
 
-def _wait_for_confirmation(state: RescheduleState) -> RescheduleState:
-    if state.get("error"):
-        return state
-    confirmed = await_confirmation(state["summary"] or "")
-    return {**state, "confirmed": confirmed}
-
-
 async def _commit_or_abort(state: RescheduleState) -> RescheduleState:
     if state.get("error") or not state.get("pending_action_id"):
         return state
@@ -103,12 +95,5 @@ async def _commit_or_abort(state: RescheduleState) -> RescheduleState:
 
 async def build_reschedule_graph() -> CompiledStateGraph:
     checkpointer = await get_checkpointer()
-    graph = StateGraph(RescheduleState)
-    graph.add_node("validate_and_stage", _validate_and_stage)
-    graph.add_node("wait_for_confirmation", _wait_for_confirmation)
-    graph.add_node("commit_or_abort", _commit_or_abort)
-    graph.add_edge(START, "validate_and_stage")
-    graph.add_edge("validate_and_stage", "wait_for_confirmation")
-    graph.add_edge("wait_for_confirmation", "commit_or_abort")
-    graph.add_edge("commit_or_abort", END)
+    graph = build_propose_confirm_graph(RescheduleState, _validate_and_stage, _commit_or_abort)
     return graph.compile(checkpointer=checkpointer)

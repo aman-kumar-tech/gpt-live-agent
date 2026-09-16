@@ -37,6 +37,7 @@ async def get_branding() -> BrandingResponse:
 
 
 class TokenRequest(BaseModel):
+    full_name: str | None = None
     phone_number: str | None = None
 
 
@@ -57,9 +58,14 @@ async def create_token(body: TokenRequest = TokenRequest()) -> TokenResponse:
         .with_name("Caller")
         .with_grants(api.VideoGrants(room_join=True, room=room, can_publish=True, can_subscribe=True))
     )
+    attributes = {}
+    if body.full_name:
+        attributes["full_name"] = body.full_name
     if body.phone_number:
-        # Plumbed through for display/future use -- the agent still asks for
-        # name and phone verbally; this isn't (yet) read by worker.py.
-        token_builder = token_builder.with_attributes({"phone_number": body.phone_number})
+        attributes["phone_number"] = body.phone_number
+    if attributes:
+        # Read by worker.py's entrypoint and seeded onto CallState, so the
+        # agent greets the caller by name and doesn't re-ask for either.
+        token_builder = token_builder.with_attributes(attributes)
 
     return TokenResponse(token=token_builder.to_jwt(), url=settings.livekit_url, room=room)

@@ -26,6 +26,13 @@ ROOT = Path(__file__).parent
 VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYTHON = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 
+# Read from the environment (.env, loaded below into `env` and passed to each
+# subprocess) rather than hardcoding -- so running against a non-default
+# .env (e.g. a second, side-by-side stack on different ports) actually takes
+# effect here too, instead of always landing on 8080/5500 regardless.
+TOKEN_SERVER_PORT = os.environ.get("TOKEN_SERVER_PORT", "8080")
+WEB_PORT = os.environ.get("WEB_PORT", "5500")
+
 SERVICES = [
     {
         "name": "worker",
@@ -34,13 +41,19 @@ SERVICES = [
     },
     {
         "name": "token",
-        "cmd": [PYTHON, "-m", "uvicorn", "server.token_server:app", "--host", "127.0.0.1", "--port", "8080"],
+        "cmd": [
+            PYTHON, "-m", "uvicorn", "server.token_server:app",
+            "--host", "127.0.0.1", "--port", TOKEN_SERVER_PORT,
+        ],
         "cwd": ROOT,
     },
     {
         "name": "web",
-        "cmd": [PYTHON, "-m", "http.server", "5500"],
-        "cwd": ROOT / "web",
+        "cmd": [PYTHON, "web/serve.py"],
+        "cwd": ROOT,
+        # No docker port-remapping in this local (non-container) path, so
+        # the browser-facing token URL is just this same host port directly.
+        "extra_env": {"WEB_PORT": WEB_PORT, "TOKEN_SERVER_URL": f"http://localhost:{TOKEN_SERVER_PORT}"},
     },
 ]
 
@@ -88,10 +101,11 @@ def main() -> None:
     reported_exit: set[str] = set()
 
     for service in SERVICES:
+        service_env = {**env, **service.get("extra_env", {})}
         proc = subprocess.Popen(
             service["cmd"],
             cwd=str(service["cwd"]),
-            env=env,
+            env=service_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -101,7 +115,7 @@ def main() -> None:
         threading.Thread(target=_stream_output, args=(service["name"], proc), daemon=True).start()
         print(f"[run] started {service['name']} (pid {proc.pid})")
 
-    print("[run] all services started. Open http://localhost:5500")
+    print(f"[run] all services started. Open http://localhost:{WEB_PORT}")
     print("[run] press Ctrl+C to stop the worker/token-server/web-server.")
 
     try:
