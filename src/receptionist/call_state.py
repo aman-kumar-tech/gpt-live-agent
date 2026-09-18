@@ -45,6 +45,10 @@ class CallState:
     pending_kind: PendingKind | None = None
     pending_thread_id: str | None = None
 
+    # Names already read to this caller by list_available_tests, so a repeat
+    # call naturally continues instead of the model tracking a page number.
+    shown_test_names: set[str] = field(default_factory=set)
+
     _graphs: dict[PendingKind, CompiledStateGraph] = field(default_factory=dict)
 
     def set_pending(self, kind: PendingKind, thread_id: str) -> None:

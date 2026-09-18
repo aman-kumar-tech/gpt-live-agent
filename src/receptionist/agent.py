@@ -65,14 +65,20 @@ class ReceptionistAgent(Agent):
         self,
         known_full_name: str | None = None,
         known_phone_number: str | None = None,
+        lab_info_text: str | None = None,
     ) -> None:
-        instructions = build_voice_instructions(known_full_name, known_phone_number)
+        instructions = build_voice_instructions(
+            known_full_name=known_full_name,
+            known_phone_number=known_phone_number,
+            lab_info_text=lab_info_text,
+        )
         super().__init__(instructions=instructions, tools=ALL_TOOLS)
 
 
 def build_gpt_live_model(
     known_full_name: str | None = None,
     known_phone_number: str | None = None,
+    lab_info_text: str | None = None,
 ) -> GPTLiveModel:
     # reasoning/text.verbosity (ResponsesDelegationOptions) only apply to gpt-5
     # and o-series backend models -- OpenAI rejects them for gpt-4o-mini, so
@@ -81,6 +87,10 @@ def build_gpt_live_model(
         voice="marin",
         responses_options={
             "model": settings.reasoning_model,
-            "instructions": build_reasoning_instructions(known_full_name, known_phone_number),
+            "instructions": build_reasoning_instructions(
+                known_full_name=known_full_name,
+                known_phone_number=known_phone_number,
+                lab_info_text=lab_info_text,
+            ),
         },
     )

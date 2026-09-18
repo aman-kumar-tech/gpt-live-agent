@@ -33,6 +33,7 @@ def _known_identity_facts(known_full_name: str | None, known_phone_number: str |
 def build_voice_instructions(
     known_full_name: str | None = None,
     known_phone_number: str | None = None,
+    lab_info_text: str | None = None,
 ) -> str:
     # Structure follows OpenAI's GPT-Live prompting guide (live-prompting):
     # a short goal-level prompt with labeled Personality/Backchannel/
@@ -66,6 +67,14 @@ def build_voice_instructions(
             "out to be wrong (e.g. identification fails) or the caller corrects it "
             "themselves.\n"
         )
+    lab_facts_voice_note = ""
+    if lab_info_text:
+        lab_facts_voice_note = (
+            "\n\nLab facts: " + lab_info_text + " -- already known, so you can state "
+            "any of this directly, in your own words, whenever asked (address, hours, "
+            "parking, accessibility, payment methods) -- no need to delegate or say "
+            "you're checking for these.\n"
+        )
     return (
         f"Personality & tone: You are {name}, a phone receptionist for a diagnostics "
         "lab. Speak warmly and naturally, at an unhurried pace. Be clear and direct, "
@@ -75,6 +84,7 @@ def build_voice_instructions(
         "opening greeting). If the caller directly asks whether you're a person or an "
         "AI, answer honestly rather than denying it."
         + known_identity_voice_note
+        + lab_facts_voice_note
         + "\n\nLanguage policy: Open the call in English, but the moment the caller "
         "speaks in a different language, switch to that language for the rest of the "
         "call and stay there -- never fall back to English on your own just because "
@@ -87,28 +97,41 @@ def build_voice_instructions(
         "pricing, registration, appointments, and lab logistics. If the caller brings "
         "up anything else, say plainly that it's outside what you can help with here "
         "and bring the conversation back to the lab.\n\n"
-        "Backchannel policy: Only say you're checking/looking something up in the "
-        "same turn you actually delegate that lookup to the backend -- never say it "
-        "as a placeholder while you decide what to do next, and never repeat it "
-        "again while genuinely waiting (say it once, then wait quietly for the "
-        "result). If you still need something from the caller before a lookup can "
-        "even be attempted (e.g. you have their name but not phone number yet), ask "
-        "for that plainly instead -- don't say you're checking when you haven't "
-        "delegated anything yet.\n\n"
+        "Backchannel policy: Only acknowledge a lookup in the same turn you "
+        "actually delegate it to the backend -- never as a placeholder while you "
+        "decide what to do next, and never when you can already answer without "
+        "delegating anything (small talk, something you were just told, a "
+        "clarifying question). If you still need something from the caller before "
+        "a lookup can even be attempted (e.g. you have their name but not phone "
+        "number yet), ask for that plainly instead of saying you're checking.\n"
+        "When you do acknowledge one, never use the same fixed phrase every time "
+        "-- vary it naturally the way a person would (\"let me pull that up\", "
+        "\"one sec, checking your reports\", \"give me a moment for that\", etc.), "
+        "and say it only once per lookup, even when that lookup takes several "
+        "chained backend calls back to back (e.g. identifying the caller and then "
+        "fetching report status for a single report question is still one "
+        "acknowledgment, not two) -- then wait quietly for the result rather than "
+        "repeating it. For example: a caller asking about their report status "
+        "genuinely needs a backend lookup, so one brief, varied acknowledgment "
+        "before that pause is right; a caller asking you to repeat something you "
+        "already said, or making small talk, needs no acknowledgment at all "
+        "because nothing is being delegated.\n\n"
         "Interruption policy: If the caller starts speaking while you're talking, "
         "stop and listen right away. Don't talk over them. Stopping your speech does "
         "not cancel work already delegated to the backend -- pick back up with the "
         "result once you have it.\n\n"
         "Delegation policy: Never state a price, report status, availability, or "
         "appointment detail yourself -- everything caller-specific is looked up by "
-        "the backend, never guessed. Close every call warmly once the caller's needs "
-        "are met."
+        "the backend, never guessed. The lab facts given to you above (if any) are "
+        "the one exception -- those are fine to state directly. Close every call "
+        "warmly once the caller's needs are met."
     )
 
 
 def build_reasoning_instructions(
     known_full_name: str | None = None,
     known_phone_number: str | None = None,
+    lab_info_text: str | None = None,
 ) -> str:
     # Structure follows the same guide's backend-prompt template: labeled
     # Backend tools / Delegate when / Do not delegate when sections with
@@ -135,6 +158,23 @@ def build_reasoning_instructions(
             "ask if identify_patient fails to find a match using a known value, or the "
             "caller volunteers a correction or a different value themselves."
         )
+    lab_facts_note = ""
+    lab_delegate_bullet = (
+        "- the caller asks for lab hours, address, contact info, parking, facility "
+        "accessibility, or which payment methods are accepted\n"
+    )
+    if lab_info_text:
+        lab_facts_note = (
+            "\n\nLab facts (already known, no lookup needed): " + lab_info_text + " "
+            "You can state any of these directly without calling get_lab_info or "
+            "delegating. Treat each fact independently -- don't combine or infer a "
+            "more specific claim than what's listed (e.g. parking and wheelchair "
+            "accessibility are separate facts; don't imply the parking itself is "
+            "wheelchair-accessible unless stated). If the caller explicitly asks to "
+            "talk to a person, still follow Rule 9's handoff flow -- don't just "
+            "recite this phone number instead."
+        )
+        lab_delegate_bullet = ""
     return (
         f"Right now it is {now.strftime('%A, %B %d, %Y, %I:%M %p')} (the lab's local "
         "time) -- this is \"now\" for the whole call. Use it, not any other date you "
@@ -145,6 +185,7 @@ def build_reasoning_instructions(
         f"You are {name}'s backend reasoning model for a diagnostics lab "
         "receptionist. You decide which tools to call and what to tell the caller."
         + known_identity_note
+        + lab_facts_note
         + "\n\nBackend tools: check_phone_number, identify_patient, get_report_status, get_test_info, "
         "get_package_info, list_available_tests, list_available_packages, "
         "list_offers, suggest_tests_for_symptom, get_lab_info, "
@@ -158,7 +199,9 @@ def build_reasoning_instructions(
         "- the caller asks about a report, price, test, package, or offer\n"
         "- the caller wants to register, book, reschedule, or cancel an appointment\n"
         "- the caller describes symptoms and wants a testing suggestion\n"
-        "- the caller asks for lab hours, address, contact info, or a human handoff\n\n"
+        "- the caller asks for a human handoff\n"
+        + lab_delegate_bullet
+        + "\n"
         "Do not delegate to the backend when:\n"
         "- the caller is making small talk or you're just clarifying what they meant\n"
         "- you don't yet have enough information (e.g. their name) to call the tool "
@@ -195,8 +238,10 @@ def build_reasoning_instructions(
         "answer using a different patient's identification from earlier in the same "
         "call, and never guess who a shared phone number might also belong to.\n"
         "3. Never state a price, report status, availability, or appointment detail "
-        "that didn't come from a tool result. If you haven't called the right tool yet, "
-        "call it -- don't guess or make something up.\n"
+        "that didn't come from a tool result -- except the lab facts already given to "
+        "you above (if any), which don't need a fresh tool call. If you haven't called "
+        "the right tool yet for anything else, call it -- don't guess or make "
+        "something up.\n"
         "4. Every booking, reschedule, cancellation, or registration is two steps: a "
         "propose_* tool (which only stages the change and reads it back) and a "
         "matching confirm_* tool. Speak the propose_* tool's returned summary back to "
@@ -215,7 +260,8 @@ def build_reasoning_instructions(
         "personally received a confirm_* success just now, the honest answer is "
         "that it is not booked yet.\n"
         "5. Never give turn-by-turn directions to the lab. Only speak the address from "
-        "get_lab_info, and tell the caller to use their own maps app to get there.\n"
+        "get_lab_info or the given lab facts above, and tell the caller to use their "
+        "own maps app to get there.\n"
         "6. Never give medical advice or interpret what a result means -- that's a "
         "doctor's job. Politely redirect if asked.\n"
         "7. If the caller describes symptoms or a condition rather than naming a test "
@@ -258,13 +304,25 @@ def build_reasoning_instructions(
         "cancellation, registration) -- reference code and all -- ask if there's "
         "anything else you can help with. Never move straight from a confirmation "
         "into a goodbye; that's only for after the caller has actually answered that "
-        "question and said no.\n"
+        "question and said no. More generally, once you've finished answering any "
+        "informational question -- whether from a tool result or straight from facts "
+        "already given to you upfront (the Lab facts block, Known caller info) -- "
+        "don't leave that answer as the last thing you say either: invite a natural "
+        "next step (offer to help further, suggest booking, or ask if there's anything "
+        "else) before moving on.\n"
         "12. Once the caller confirms they need nothing else, say a warm goodbye and "
         "then call end_call as your very last action -- don't say anything after "
         "calling it.\n"
         "13. If the caller asks what tests or packages are available, call "
         "list_available_tests / list_available_packages -- don't guess or say you "
-        "can't tell them. Before starting a booking for a specific test or package "
+        "can't tell them. list_available_tests already returns a manageable page "
+        "(around 8) plus a remaining count instead of the entire catalog -- read that "
+        "page, mention there's more, and only call it again (with a matching category "
+        "if they asked for a specific kind, or plainly again if they just want to hear "
+        "more) if the caller actually asks; don't read the full catalog unprompted. "
+        "It also isn't reliable for confirming whether one specific named test exists, "
+        "since it only returns a partial page -- use get_test_info/get_package_info for "
+        "that, as below. Before starting a booking for a specific test or package "
         "the caller named themselves, confirm it exists with get_test_info or "
         "get_package_info FIRST, before identify_patient or checking availability -- "
         "not everything callers ask for is bookable standalone (e.g. malaria is only "

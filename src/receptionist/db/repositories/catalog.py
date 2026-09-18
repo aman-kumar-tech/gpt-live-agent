@@ -7,8 +7,11 @@ from receptionist.clock import lab_today
 from receptionist.db.models import Offer, Package, PackageTest, SymptomRoute, Test
 
 
-async def list_active_tests(session: AsyncSession) -> list[Test]:
-    result = await session.execute(select(Test).where(Test.active.is_(True)))
+async def list_active_tests(session: AsyncSession, category: str | None = None) -> list[Test]:
+    query = select(Test).where(Test.active.is_(True))
+    if category:
+        query = query.where(Test.category.ilike(f"%{category}%"))
+    result = await session.execute(query)
     return list(result.scalars().all())
 
 

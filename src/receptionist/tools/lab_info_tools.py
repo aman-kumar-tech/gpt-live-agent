@@ -21,22 +21,44 @@ def _format_hours(hours: dict) -> str:
     return ", ".join(parts)
 
 
-@function_tool
-async def get_lab_info(context: RunContext[CallState]) -> str:
-    """Get the lab's real address, phone number, hours, and accreditations.
-    Speak only the address itself -- never give turn-by-turn directions;
-    tell the caller to use their own maps app if they ask how to get there."""
-    session_factory = get_session_factory()
-    async with session_factory() as session:
-        lab = await lab_info_repo.get_lab_info(session)
-
+def format_lab_info(lab) -> str:
     if lab is None:
         return "Lab info is not configured."
     result = f"{lab.name}, {lab.address}. Phone {lab.phone_number}. Hours: {_format_hours(lab.hours)}."
-    accreditations = (lab.metadata_ or {}).get("accreditations")
+    metadata = lab.metadata_ or {}
+
+    accreditations = metadata.get("accreditations")
     if accreditations:
         result += f" Accredited: {', '.join(accreditations)}."
+
+    facilities = metadata.get("facilities") or {}
+    if facilities.get("parking"):
+        result += f" Parking: {facilities['parking']}."
+    if "home_collection" in facilities:
+        result += f" Home collection: {'available' if facilities['home_collection'] else 'not available'}."
+    if "wheelchair_accessible" in facilities:
+        result += f" Wheelchair accessible: {'yes' if facilities['wheelchair_accessible'] else 'no'}."
+
+    payment_methods = metadata.get("payment_methods_accepted")
+    if payment_methods:
+        result += f" Payment methods accepted: {', '.join(payment_methods)}."
+
     return result
+
+
+@function_tool
+async def get_lab_info(context: RunContext[CallState]) -> str:
+    """Get the lab's real address, phone number, hours, accreditations,
+    facilities (parking, home collection, wheelchair access), and accepted
+    payment methods. You'll normally already have this from the lab facts
+    given to you at the start of the call -- only call this if that's
+    missing or you need to double-check it. Speak only the address itself --
+    never give turn-by-turn directions; tell the caller to use their own
+    maps app if they ask how to get there."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        lab = await lab_info_repo.get_lab_info(session)
+    return format_lab_info(lab)
 
 
 @function_tool

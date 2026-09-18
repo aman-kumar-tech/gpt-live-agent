@@ -14,7 +14,10 @@ from receptionist.auto_hangup import attach_auto_hangup
 from receptionist.call_state import CallState
 from receptionist.clock import lab_now
 from receptionist.config import settings
+from receptionist.db.engine import get_session_factory
+from receptionist.db.repositories import lab_info as lab_info_repo
 from receptionist.observability import attach_observability
+from receptionist.tools.lab_info_tools import format_lab_info
 from receptionist.winasync import ensure_selector_event_loop
 
 ensure_selector_event_loop()
@@ -61,7 +64,20 @@ def _opening_greeting_instructions(known_full_name: str | None) -> str:
     )
 
 
+async def _fetch_lab_info_text() -> str | None:
+    # Given to both prompt layers upfront (see instructions.py); None falls back to the get_lab_info tool.
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            lab = await lab_info_repo.get_lab_info(session)
+        return format_lab_info(lab) if lab else None
+    except Exception:
+        logger.warning("failed to fetch lab info for prompt", exc_info=True)
+        return None
+
+
 async def entrypoint(ctx: JobContext) -> None:
+    logger.warning("job %s picked up, waiting for participant", ctx.job.id)
     # wait_for_participant() connects (if not already) and returns immediately
     # if the caller already joined, so this picks up the phone_number/full_name
     # attributes the web token server attached (server/token_server.py) without
@@ -81,9 +97,11 @@ async def entrypoint(ctx: JobContext) -> None:
         known_full_name=caller.attributes.get("full_name") or None,
         known_phone_number=caller.attributes.get("phone_number") or None,
     )
+    lab_info_text = await _fetch_lab_info_text()
     llm = build_gpt_live_model(
         known_full_name=call_state.known_full_name,
         known_phone_number=call_state.known_phone_number,
+        lab_info_text=lab_info_text,
     )
     session = AgentSession(llm=llm, userdata=call_state)
     attach_observability(session, call_state.call_session_id)
@@ -92,10 +110,14 @@ async def entrypoint(ctx: JobContext) -> None:
     agent: Agent = ReceptionistAgent(
         known_full_name=call_state.known_full_name,
         known_phone_number=call_state.known_phone_number,
+        lab_info_text=lab_info_text,
     )
+    logger.warning("job %s starting session (GPT-Live connect)", ctx.job.id)
     await session.start(agent, room=ctx.room)
+    logger.warning("job %s session started", ctx.job.id)
 
     session.generate_reply(instructions=_opening_greeting_instructions(call_state.known_full_name))
+    logger.warning("job %s greeting handed off", ctx.job.id)
 
 
 if __name__ == "__main__":
@@ -108,5 +130,14 @@ if __name__ == "__main__":
             api_secret=settings.livekit_api_secret,
             # "dev" mode defaults to DEBUG otherwise -- see config.py's log_level comment.
             log_level=settings.log_level,
+            # livekit-agents defaults num_idle_processes to 0 in "dev" mode
+            # (vs. one per CPU core in "start"/prod mode) -- this project
+            # always runs via `... worker dev` (Dockerfile, docker-compose,
+            # run.py), so without this override every single call cold-spawns
+            # a brand-new OS process and pays prewarm()'s import/engine-setup
+            # cost inline before the caller hears anything. Keeping one
+            # process warm means calls are handed to an already-prewarmed
+            # process instead.
+            num_idle_processes=1,
         )
     )

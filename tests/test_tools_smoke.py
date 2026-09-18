@@ -14,11 +14,12 @@ from receptionist.tools.appointment_tools import (
 from receptionist.tools.catalog_tools import (
     get_package_info,
     get_test_info,
+    list_available_tests,
     list_offers,
     suggest_tests_for_symptom,
 )
 from receptionist.tools.identity_tools import identify_patient
-from receptionist.tools.lab_info_tools import get_human_handoff_number, get_lab_info
+from receptionist.tools.lab_info_tools import format_lab_info, get_human_handoff_number, get_lab_info
 from receptionist.tools.pending_action_tools import discard_pending_action
 from receptionist.tools.registration_tools import (
     confirm_new_patient_registration,
@@ -82,9 +83,69 @@ async def test_lab_info_tools():
     ctx = _ctx()
     info = await get_lab_info._func(ctx)
     assert "Dr Lal PathLabs" in info
+    assert "Parking:" in info
+    assert "Payment methods accepted:" in info
 
     number = await get_human_handoff_number._func(ctx)
     assert number == "+918071371386"
+
+
+def test_format_lab_info_handles_missing_lab():
+    assert format_lab_info(None) == "Lab info is not configured."
+
+
+def test_format_lab_info_handles_missing_metadata():
+    from types import SimpleNamespace
+
+    lab = SimpleNamespace(
+        name="Test Lab", address="123 Test St", phone_number="+910000000000",
+        hours={}, metadata_=None,
+    )
+    result = format_lab_info(lab)
+    assert "Test Lab, 123 Test St." in result
+    assert "Parking:" not in result
+    assert "Payment methods accepted:" not in result
+
+
+async def test_list_available_tests_pages_without_repeating():
+    from receptionist.db.engine import get_session_factory as _get_session_factory
+    from receptionist.db.repositories import catalog as catalog_repo
+
+    ctx = _ctx()
+    session_factory = _get_session_factory()
+    async with session_factory() as session:
+        all_tests = await catalog_repo.list_active_tests(session)
+    total_names = {t.name for t in all_tests}
+
+    first_page = await list_available_tests._func(ctx)
+    assert first_page.count("₹") <= 8
+
+    # Drive it to exhaustion via the actual shown_test_names state (not by
+    # parsing the spoken-style string, since some test names contain their
+    # own parentheses, e.g. "C-Reactive Protein (CRP) Quantitative").
+    safety_limit = len(total_names) + 1  # off-by-one guard: fail loudly instead of hanging
+    while ctx.userdata.shown_test_names != total_names and safety_limit > 0:
+        before = set(ctx.userdata.shown_test_names)
+        await list_available_tests._func(ctx)
+        assert ctx.userdata.shown_test_names > before, "each call should show at least one new test until exhausted"
+        safety_limit -= 1
+
+    assert ctx.userdata.shown_test_names == total_names
+    exhausted = await list_available_tests._func(ctx)
+    assert "already heard all the available tests" in exhausted
+
+
+async def test_list_available_tests_category_filter():
+    ctx = _ctx()
+    result = await list_available_tests._func(ctx, category="Diabetes")
+    assert "HbA1c" in result
+    assert "Vitamin D" not in result
+
+
+async def test_list_available_tests_category_no_match():
+    ctx = _ctx()
+    result = await list_available_tests._func(ctx, category="Nonexistent Category XYZ")
+    assert "No tests found matching category" in result
 
 
 async def test_suggest_tests_for_symptom():

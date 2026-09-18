@@ -27,6 +27,9 @@ def _offers_suffix(offers) -> str:
     return " Current offer: " + "; ".join(_format_offer(o) for o in offers) + "."
 
 
+_TEST_LIST_PAGE_SIZE = 8
+
+
 @function_tool
 async def get_test_info(context: RunContext[CallState], name_or_code: str) -> str:
     """Look up price, description, turnaround time, fasting requirements,
@@ -80,16 +83,23 @@ async def get_package_info(context: RunContext[CallState], name: str) -> str:
 
 
 @function_tool
-async def list_available_tests(context: RunContext[CallState]) -> str:
-    """List every individual test this lab offers, with price. Use this when
-    the caller asks what tests are available, or -- before collecting their
-    name, phone, or an appointment time -- to confirm a test they named by
-    themselves actually exists (get_test_info works too for a single name).
-    Checking early means an unavailable test is caught before wasting the
-    caller's time on details that turn out to be for nothing."""
+async def list_available_tests(context: RunContext[CallState], category: str | None = None) -> str:
+    """List individual tests this lab offers, with price -- returns up to 8
+    at a time, never the whole catalog at once, so the caller isn't read a
+    long list. Calling this again (same or no category) automatically
+    continues with tests not yet mentioned this call -- you don't need to
+    track how many you've already said. This is NOT reliable for confirming
+    whether one specific named test exists (it only returns a partial page)
+    -- use get_test_info for that instead.
+
+    Args:
+        category: Narrow to one category (e.g. "Diabetes", "Cardiovascular / Heart")
+            if the caller asks for a specific kind or "related tests". This is a
+            loose/best-effort match, not an exact list of valid values.
+    """
     session_factory = get_session_factory()
     async with session_factory() as session:
-        tests = await catalog_repo.list_active_tests(session)
+        tests = await catalog_repo.list_active_tests(session, category=category)
 
     # the seed data has several identically-named fixture rows (distinct
     # codes) for exercising the home-collection-ineligible path -- collapse
@@ -97,18 +107,40 @@ async def list_available_tests(context: RunContext[CallState]) -> str:
     by_name = {}
     for t in tests:
         by_name.setdefault(t.name, t)
+    all_tests = sorted(by_name.values(), key=lambda t: (t.category or "", t.name))
 
-    if not by_name:
-        return "No tests are currently available."
-    return "; ".join(f"{t.name} ({settings.currency_symbol}{t.price:.2f})" for t in by_name.values())
+    if not all_tests:
+        return f"No tests found matching category '{category}'." if category else "No tests are currently available."
+
+    shown = context.userdata.shown_test_names
+    unseen = [t for t in all_tests if t.name not in shown]
+    if not unseen:
+        return (
+            f"You've already heard all the tests in the '{category}' category."
+            if category else "You've already heard all the available tests."
+        )
+
+    page = unseen[:_TEST_LIST_PAGE_SIZE]
+    shown.update(t.name for t in page)
+
+    result = "; ".join(f"{t.name} ({settings.currency_symbol}{t.price:.2f})" for t in page)
+    remaining = len(unseen) - len(page)
+    if remaining > 0:
+        result += f" ({remaining} more available"
+        if not category:
+            categories = sorted({t.category for t in unseen[len(page):] if t.category})
+            if categories:
+                result += f" -- categories include {', '.join(categories[:5])}"
+        result += ".)"
+    return result
 
 
 @function_tool
 async def list_available_packages(context: RunContext[CallState]) -> str:
-    """List every health package/bundle this lab offers, with price. Use
-    this when the caller asks what packages are available, or to confirm a
-    package they named exists before collecting their other booking
-    details (get_package_info works too for a single name)."""
+    """List every health package/bundle this lab offers, with price (there
+    are only a handful, so this returns all of them). Use this when the
+    caller asks what packages are available -- use get_package_info instead
+    to confirm whether one specific named package exists."""
     session_factory = get_session_factory()
     async with session_factory() as session:
         packages = await catalog_repo.list_active_packages(session)
